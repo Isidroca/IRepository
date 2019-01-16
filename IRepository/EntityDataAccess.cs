@@ -1,0 +1,1727 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Reflection;
+using System.Data.SqlClient;
+using System.Data;
+using System.Collections;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Dynamic;
+using System.Collections.Concurrent;
+using System.Linq.Expressions;
+using System.Threading.Tasks;
+using System.Threading;
+
+namespace ProFix.Repository  {
+
+    /// <summary>
+    /// IData - a simple object mapper for .Net - ICalderon
+    /// </summary>
+    public class EntityDataAccess : IDisposable {
+
+        public string ConnectionString { get; set; }
+        public string CommandText { get; set; }
+        public ICommandType CommandType { get; set; }
+        public string InternalError = string.Empty;
+        private string _sqlText { get; set; }
+        public string SqlText { get; private set; }
+        public int CommandTimeOut = 30;
+        protected int _durationTime = 0;
+        public int QueryDurationTime {
+            get {
+                return _durationTime;
+            }
+        }
+        public bool StatisticsEnabled { get; set; } = false;
+        public bool IsValidModel { get; private set; } = true;
+        public CancellationTokenSource CancellationTokenSource { get; set; }
+        public CancellationToken CancellationToken { get; set; }
+        internal List<string> _infoMessage;
+        public List<string> InfoMessage {
+            get {
+                return _infoMessage;
+            }
+        }
+        protected bool _ifInserted = false;
+
+        private List<SqlParameter> SqlParameters = new List<SqlParameter>();
+        ConcurrentDictionary<Type, Delegate> ExpressionCache = new ConcurrentDictionary<Type, Delegate>();
+        ConcurrentDictionary<Type, string> QueryCache = new ConcurrentDictionary<Type, string>();
+        SqlConnection SQLConnection;
+        SqlTransaction SQLTransaction;
+
+        public enum TypeApp : short {
+
+            Web = 1,
+            Desktop = 2
+        }
+
+        public enum ICommandType : byte {
+
+            Text = 1,
+            StorePrecedure = 2
+        }
+
+        /// <summary>
+        /// Create new intance to EntityDataAccess class
+        /// </summary>
+        public EntityDataAccess() { }
+
+        /// <summary>
+        /// Create new intance to EntityDataAccess class
+        /// </summary>
+        /// <param name="ConnectionString">Gets or sets the SqlConnection used by this instance of the SqlCommand, The default value is null.</param>
+        public EntityDataAccess(string ConnectionString) {
+
+            this.ConnectionString = ConnectionString;
+        }
+
+        /// <summary>
+        /// Create new intance to EntityDataAccess class
+        /// </summary>
+        /// <param name="ConnectionString">Gets or sets the SqlConnection used by this instance of the SqlCommand, The default value is null.</param>
+        /// <param name="CommandText">The Transact-SQL statement or stored procedure to execute.</param>
+        public EntityDataAccess(string ConnectionString, string CommandText) {
+
+            this.ConnectionString = ConnectionString;
+            this.CommandText = CommandText;
+        }
+
+        /// <summary>
+        /// Create new intance to EntityDataAccess class
+        /// </summary>
+        /// <param name="ConnectionString">Gets or sets the SqlConnection used by this instance of the SqlCommand, The default value is null.</param>
+        /// <param name="CommandText">The Transact-SQL statement or stored procedure to execute.</param>
+        /// <param name="CommandType">Gets or sets a value indicating how the CommandText property is to be interpreted, query or store procedure, text query by default</param>
+        public EntityDataAccess(string ConnectionString, string CommandText, ICommandType CommandType) {
+
+            this.ConnectionString = ConnectionString;
+            this.CommandText = CommandText;
+            this.CommandType = CommandType;
+        }
+
+        /// <summary>
+        /// Create new intance to EntityDataAccess class
+        /// </summary>
+        /// <param name="ConnectionString">Gets or sets the SqlConnection used by this instance of the SqlCommand, The default value is null.</param>
+        /// <param name="CommandText">The Transact-SQL statement or stored procedure to execute.</param>
+        /// <param name="CommandType">Gets or sets a value indicating how the CommandText property is to be interpreted, query or store procedure, text query by default</param>
+        /// <param name="CommandTimeOut">Wait time by execution query, 30 second by default</param>
+        public EntityDataAccess(string ConnectionString, string CommandText, ICommandType CommandType, int CommandTimeOut) {
+
+            this.ConnectionString = ConnectionString;
+            this.CommandText = CommandText;
+            this.CommandType = CommandType;
+            this.CommandTimeOut = CommandTimeOut;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="_commType"></param>
+        /// <returns></returns>
+        private CommandType SetCommandType(ICommandType _commType) {
+
+            return _commType == ICommandType.StorePrecedure ? System.Data.CommandType.StoredProcedure : System.Data.CommandType.Text;
+        }
+
+        /// <summary>
+        /// Attempt to commit the transaction.
+        /// </summary>
+        public void Commit() {
+            if (SQLTransaction != null) {
+                SQLTransaction.Commit();
+                DisponseConn();
+            }
+        }
+
+        /// <summary>
+        ///  Attempt to roll back the transaction.
+        /// </summary>
+        public void Rollback() {
+
+            if (SQLTransaction != null) {
+                SQLTransaction.Rollback();
+                DisponseConn();
+            }
+        }
+
+        /// <summary>
+        /// Get one DataTable
+        /// </summary>
+        /// <param name="Parameters"></param>
+        /// <returns></returns>
+        public DataTable DataTable() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            DataTable _dt = new DataTable();
+
+            using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
+                using (SqlCommand _sqlComand = new SqlCommand(CommandText, _strConn)) {
+
+                    _sqlComand.CommandType = this.SetCommandType(CommandType);
+                    _sqlComand.CommandTimeout = this.CommandTimeOut;
+
+                    try {
+                        if (SqlParameters.Count > 0) {
+                            _sqlComand.Parameters.AddRange(SqlParameters.ToArray());
+                            SqlParameters.Clear();
+                        }
+                        _strConn.Open();
+                        _sqlComand.ExecuteNonQuery();
+                        SqlDataAdapter _da = new SqlDataAdapter(_sqlComand);
+                        _da.Fill(_dt);
+                    } catch (SqlException ex) {
+                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        return null;
+                    } catch (Exception ex) {
+                        InternalError = ex.Message.ToString();
+                    }
+                }
+            }
+            return _dt;
+        }
+
+        /// <summary>
+        /// Get one DataSet
+        /// </summary>
+        /// <returns></returns>
+        public DataSet DataSet() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            DataSet _dt = new DataSet();
+
+            using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
+                using (SqlCommand _sqlComand = new SqlCommand(CommandText, _strConn)) {
+
+                    _sqlComand.CommandType = this.SetCommandType(CommandType);
+                    _sqlComand.CommandTimeout = this.CommandTimeOut;
+
+                    try {
+                        if (SqlParameters.Count > 0) {
+                            _sqlComand.Parameters.AddRange(SqlParameters.ToArray());
+                            SqlParameters.Clear();
+                        }
+                        _strConn.Open();
+                        _sqlComand.ExecuteNonQuery();
+                        SqlDataAdapter _da = new SqlDataAdapter(_sqlComand);
+                        _da.Fill(_dt);
+                    } catch (SqlException ex) {
+                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        return null;
+                    } catch (Exception ex) {
+                        InternalError = ex.Message.ToString();
+                    }
+                }
+            }
+            return _dt;
+        }
+
+        /// <summary>
+        /// Execute transactions on the database and return first column value
+        /// </summary>
+        /// <returns>Object</returns>
+        public object ExecuteScalar() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
+                using (SqlCommand _sqlComand = new SqlCommand(CommandText, _strConn)) {
+
+                    _sqlComand.CommandType = this.SetCommandType(CommandType);
+                    _sqlComand.CommandTimeout = this.CommandTimeOut;
+
+                    try {
+                        if (SqlParameters.Count > 0) {
+                            _sqlComand.Parameters.AddRange(SqlParameters.ToArray());
+                            SqlParameters.Clear();
+                        }
+                        _strConn.Open();
+                        return _sqlComand.ExecuteScalar();
+
+                    } catch (SqlException ex) {
+                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        return 0;
+                    } catch (Exception ex) {
+                        InternalError = ex.Message.ToString();
+                        return 0;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Execute transactions on the database and return first column value
+        /// </summary>
+        /// <returns></returns>
+        public async Task<object> ExecuteScalarAsync() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
+                using (SqlCommand _sqlComand = new SqlCommand(CommandText, _strConn)) {
+
+                    _sqlComand.CommandType = this.SetCommandType(CommandType);
+                    _sqlComand.CommandTimeout = this.CommandTimeOut;
+
+                    try {
+                        if (SqlParameters.Count > 0) {
+                            _sqlComand.Parameters.AddRange(SqlParameters.ToArray());
+                            SqlParameters.Clear();
+                        }
+                        _strConn.Open();
+                        return await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false);
+
+                    } catch (SqlException ex) {
+                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        return 0;
+                    } catch (Exception ex) {
+                        InternalError = ex.Message.ToString();
+                        return 0;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Execute transactions on the database and return the number of rows effected.
+        /// </summary>
+        /// <returns>int, return the number of rows effected</returns>
+        public int ExecuteNonQuery() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
+                using (SqlCommand _sqlComand = new SqlCommand(this.CommandText, _strConn)) {
+
+                    _sqlComand.CommandType = SetCommandType(CommandType);
+                    _sqlComand.CommandTimeout = this.CommandTimeOut;
+
+                    try {
+                        if (SqlParameters != null) {
+                            _sqlComand.Parameters.AddRange(SqlParameters.ToArray());
+                            SqlParameters.Clear();
+                        }
+                        _strConn.Open();
+                        if (_ifInserted)
+                            return (int)_sqlComand.ExecuteScalar();
+                        else
+                            return _sqlComand.ExecuteNonQuery();
+
+                    } catch (SqlException ex) {
+                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        return 0;
+                    } catch (Exception ex) {
+                        InternalError = ex.Message.ToString();
+                        return 0;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public async Task<int> ExecuteNonQueryAsync() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
+                using (SqlCommand _sqlComand = new SqlCommand(this.CommandText, _strConn)) {
+
+                    _sqlComand.CommandType = SetCommandType(CommandType);
+                    _sqlComand.CommandTimeout = this.CommandTimeOut;
+
+                    try {
+                        if (SqlParameters != null) {
+                            _sqlComand.Parameters.AddRange(SqlParameters.ToArray());
+                            SqlParameters.Clear();
+                        }
+                        _strConn.Open();
+                        if (_ifInserted)
+                            return Convert.ToInt32(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
+                        else
+                            return await _sqlComand.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                    } catch (SqlException ex) {
+                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        return 0;
+                    } catch (Exception ex) {
+                        InternalError = ex.Message.ToString();
+                        return 0;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Execute transactions on the database with sql transaction and return the number of rows effected.
+        /// </summary>
+        /// <param name="SQLConnection">SQL Connection</param>
+        /// <param name="SQLTransaction">SQL Transaction</param>
+        /// <returns>int, return the number of rows effected</returns>
+        //public int ExecuteNonQuery(SqlConnection SQLConnection, SqlTransaction SQLTransaction) {
+
+        //    if (string.IsNullOrWhiteSpace(CommandText)) {
+        //        throw new ArgumentNullException("CommandText can not be blank");
+        //    }
+
+        //    SqlCommand _sqlComand = SQLConnection.CreateCommand();
+
+        //    try {
+        //        _sqlComand.CommandType = this.SetCommandType(CommandType);
+        //        _sqlComand.CommandText = this.CommandText;
+        //        _sqlComand.CommandTimeout = this.CommandTimeOut;
+        //        if (SqlParameters.Count > 0) {
+        //            _sqlComand.Parameters.AddRange(SqlParameters.ToArray());
+        //            SqlParameters.Clear();
+        //        }
+        //        _sqlComand.Connection = SQLConnection;
+        //        _sqlComand.Transaction = SQLTransaction;
+
+        //        return _sqlComand.ExecuteNonQuery();
+        //    } catch (SqlException ex) {
+        //        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+        //        return 0;
+        //    } catch (Exception ex) {
+        //        InternalError = ex.Message.ToString();
+        //        return 0;
+        //    }
+        //}
+
+        public int ToExecute(bool UseTransaction) {
+
+            if (UseTransaction) {
+                return ExecuteNonQuery(true);
+            }
+            else {
+                return ExecuteNonQuery();
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="UseTransaction"></param>
+        /// <returns></returns>
+        public async Task<int> ToExecuteAsync(bool UseTransaction) {
+
+            if (UseTransaction) {
+                return await ExecuteNonQueryAsync(true);
+            }
+            else {
+                return await ExecuteNonQueryAsync();
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="UseTransaction"></param>
+        /// <returns></returns>
+        public int ExecuteNonQuery(bool UseTransaction) {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            if (SQLConnection == null) {
+                SQLConnection = new SqlConnection();
+                SQLConnection.ConnectionString = this.ConnectionString;
+                SQLConnection.Open();
+                SQLTransaction = SQLConnection.BeginTransaction();
+            }
+
+            if (SQLConnection != null & SQLConnection.State == ConnectionState.Closed) {
+                SQLConnection.Open();
+
+            }
+            SqlCommand _sqlComand = SQLConnection.CreateCommand();
+
+            try {
+
+                _sqlComand.CommandType = this.SetCommandType(CommandType);
+                _sqlComand.CommandText = this.CommandText;
+                _sqlComand.CommandTimeout = this.CommandTimeOut;
+
+                if (SqlParameters.Count > 0) {
+                    _sqlComand.Parameters.AddRange(SqlParameters.ToArray());
+                    SqlParameters.Clear();
+                }
+                _sqlComand.Connection = SQLConnection;
+                _sqlComand.Transaction = SQLTransaction;
+
+                return _sqlComand.ExecuteNonQuery();
+            } catch (SqlException ex) {
+                DisponseConn();
+                InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                return 0;
+            } catch (Exception ex) {
+                DisponseConn();
+                InternalError = ex.Message.ToString();
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="UseTransaction"></param>
+        /// <returns></returns>
+        public async Task<int> ExecuteNonQueryAsync(bool UseTransaction) {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            if (SQLConnection == null) {
+                SQLConnection = new SqlConnection();
+                SQLConnection.ConnectionString = this.ConnectionString;
+                await SQLConnection.OpenAsync();
+                SQLTransaction = SQLConnection.BeginTransaction();
+            }
+
+            if (SQLConnection != null & SQLConnection.State == ConnectionState.Closed) {
+                await SQLConnection.OpenAsync();
+
+            }
+            SqlCommand _sqlComand = SQLConnection.CreateCommand();
+
+            try {
+
+                _sqlComand.CommandType = this.SetCommandType(CommandType);
+                _sqlComand.CommandText = this.CommandText;
+                _sqlComand.CommandTimeout = this.CommandTimeOut;
+
+                if (SqlParameters.Count > 0) {
+                    _sqlComand.Parameters.AddRange(SqlParameters.ToArray());
+                    SqlParameters.Clear();
+                }
+                _sqlComand.Connection = SQLConnection;
+                _sqlComand.Transaction = SQLTransaction;
+
+                return await _sqlComand.ExecuteNonQueryAsync().ConfigureAwait(false);
+            } catch (SqlException ex) {
+                DisponseConn();
+                InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                return 0;
+            } catch (Exception ex) {
+                DisponseConn();
+                InternalError = ex.Message.ToString();
+                return 0;
+            }
+        }
+
+        private void DisponseConn() {
+
+            SQLConnection.Close();
+            SQLConnection.Dispose();
+            if (SQLTransaction != null) {
+                SQLTransaction.Dispose();
+            }
+            SQLTransaction = null;
+
+        }
+
+        /// <summary>
+        /// Execute transactions on the database and return a specified value, implementation Ej: @ID int = null output
+        /// </summary>
+        /// <param name="ReturnVariableName">Sql Output variable name, ej: @ID</param>
+        /// <param name="Parameters">Delimited coma store procedure parameter, eje: val1, val2, ext</param>
+        /// <returns></returns>
+        public object ExecuteNonQuery(string ReturnVariableName, params object[] Parameters) {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
+
+                using (SqlCommand _sqlComand = new SqlCommand(this.CommandText, _strConn)) {
+
+                    _sqlComand.CommandType = System.Data.CommandType.StoredProcedure;
+                    _sqlComand.CommandTimeout = this.CommandTimeOut;
+                    _strConn.Open();
+
+                    SqlCommandBuilder.DeriveParameters(_sqlComand);
+
+                    int _index = 0;
+                    try {
+
+                        foreach (SqlParameter _paramms in _sqlComand.Parameters) {
+                            if (_paramms.Direction == ParameterDirection.Input || _paramms.Direction == ParameterDirection.Output) {
+                                _paramms.Value = Parameters[_index];
+                                _index += 1;
+                            }
+                        }
+                        _sqlComand.ExecuteNonQuery();
+                        return _sqlComand.Parameters[ReturnVariableName].Value;
+                    } catch (SqlException ex) {
+                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        return 0;
+                    } catch (Exception ex) {
+                        InternalError = ex.Message.ToString();
+                        return 0;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Execute transactions on the database and return a specified value, implementation Ej: @ID int = null output
+        /// </summary>
+        /// <param name="ReturnVariableName">Sql Output variable name, ej: @ID</param>
+        /// <param name="Parameters">Delimited coma store procedure parameter, eje: val1, val2, ext</param>
+        /// <returns></returns>
+        public async Task<object> ExecuteNonQueryAsync(string ReturnVariableName, params object[] Parameters) {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
+
+                using (SqlCommand _sqlComand = new SqlCommand(this.CommandText, _strConn)) {
+
+                    _sqlComand.CommandType = System.Data.CommandType.StoredProcedure;
+                    _sqlComand.CommandTimeout = this.CommandTimeOut;
+                    _strConn.Open();
+
+                    SqlCommandBuilder.DeriveParameters(_sqlComand);
+
+                    int _index = 0;
+                    try {
+
+                        foreach (SqlParameter _paramms in _sqlComand.Parameters) {
+                            if (_paramms.Direction == ParameterDirection.Input || _paramms.Direction == ParameterDirection.Output) {
+                                _paramms.Value = Parameters[_index];
+                                _index += 1;
+                            }
+                        }
+                        await _sqlComand.ExecuteNonQueryAsync().ConfigureAwait(false);
+                        return _sqlComand.Parameters[ReturnVariableName].Value;
+                    } catch (SqlException ex) {
+                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        return 0;
+                    } catch (Exception ex) {
+                        InternalError = ex.Message.ToString();
+                        return 0;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// The parameters of the Transact-SQL statement or stored procedure. The default is an empty collection.
+        /// </summary>
+        /// <param name="Key">Set Parameters name</param>
+        /// <param name="Value">Set Parameters value</param>
+        public void AddParameter(string Key, object Value) {
+
+            SqlParameter lp = new SqlParameter();
+            lp.ParameterName = Key;
+            lp.Value = Value == null ? DBNull.Value : Value;
+            if (!SqlParameters.Any(x => x.ParameterName == Key)) { 
+   
+                SqlParameters.Add(lp);
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="SQL"></param>
+        /// <param name="Parameters"></param>
+        /// <returns></returns>
+        public IEnumerable<T> Query<T>(string SQL, params object[] Parameters) where T : new() {
+
+            CommandText = SQL;
+
+            this.DymanicParams(Parameters);
+            return ExecuteReader<T>();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="SQL"></param>
+        /// <param name="Parameters"></param>
+        /// <returns></returns>
+        public async Task<IEnumerable<T>> QueryAsync<T>(string SQL, params object[] Parameters) where T : new() {
+
+            CommandText = SQL;
+
+            this.DymanicParams(Parameters);
+            return await ExecuteReaderAsync<T>();
+        }
+
+        /// <summary>
+        /// Map one type of SQL query or store procedure to class model in automated and easy way.
+        /// EntityDataAccess relies completely on the properties from the model or class.
+        /// </summary>
+        /// <typeparam name="T">Entity to map</typeparam>
+        /// <param name="ConnectionString">Gets or sets the SqlConnection used by this instance of the SqlCommand, The default value is null.</param>
+        /// <param name="SQL">The Transact-SQL statement or stored procedure to execute.</param>
+        /// <param name="CommandType">Gets or sets a value indicating how the CommandText property is to be interpreted, query or store procedure, text query by default</param>
+        /// <param name="Timeout">The time in seconds to wait for the command to execute. The default is 30 seconds. A value of 0 indicates no limit (an attempt to execute a command will wait indefinitely).</param>
+        /// <param name="Parameters">The parameters of the Transact-SQL statement or stored procedure. The default is an empty collection. Eje: new { p1 = 1 }, on multiple params Eje: new { p1 = 1, p2 = 5 }</param>
+        /// <returns></returns>
+        public IEnumerable<T> Query<T>(string ConnectionString, string SQL, params object[] Parameters) where T : new() {
+
+            this.ConnectionString = ConnectionString;
+            CommandText = SQL;
+
+            this.DymanicParams(Parameters);
+            return ExecuteReader<T>();
+        }
+
+        /// <summary>
+        /// Map one type of SQL query or store procedure to class model in automated and easy way.
+        /// EntityDataAccess relies completely on the properties from the model or class.
+        /// </summary>
+        /// <typeparam name="T">Entity to map</typeparam>
+        /// <param name="ConnectionString">Gets or sets the SqlConnection used by this instance of the SqlCommand, The default value is null.</param>
+        /// <param name="SQL">The Transact-SQL statement or stored procedure to execute.</param>
+        /// <param name="CommandType">Gets or sets a value indicating how the CommandText property is to be interpreted, query or store procedure, text query by default</param>
+        /// <param name="Timeout">The time in seconds to wait for the command to execute. The default is 30 seconds. A value of 0 indicates no limit (an attempt to execute a command will wait indefinitely).</param>
+        /// <param name="Parameters">The parameters of the Transact-SQL statement or stored procedure. The default is an empty collection. Eje: new { p1 = 1 }, on multiple params Eje: new { p1 = 1, p2 = 5 }</param>
+        /// <returns></returns>
+        public IEnumerable<T> Query<T>(string ConnectionString, string SQL, ICommandType CommandType = ICommandType.Text, int Timeout = 30, params object[] Parameters) where T : new() {
+
+            this.ConnectionString = ConnectionString;
+            CommandText = SQL;
+            this.CommandType = CommandType;
+            CommandTimeOut = Timeout;
+
+            this.DymanicParams(Parameters);
+            return ExecuteReader<T>();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="SQL"></param>
+        /// <param name="Parameters"></param>
+        /// <returns></returns>
+        public T FirstOrDefault<T>(string SQL, params object[] Parameters) {
+
+            CommandText = SQL;
+
+            this.DymanicParams(Parameters);
+            return FirstOrDefault();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="SQL"></param>
+        /// <param name="Parameters"></param>
+        /// <returns></returns>
+        public async Task<T> FirstOrDefaultAsync<T>(string SQL, params object[] Parameters) {
+
+            CommandText = SQL;
+
+            this.DymanicParams(Parameters);
+            return await FirstOrDefaultAsync<T>();
+        }
+
+        /// <summary>
+        /// Map one type of SQL query or store procedure to class model in automated and easy way.
+        /// EntityDataAccess relies completely on the properties from the model or class.
+        /// </summary>
+        /// <typeparam name="T">Entity to map</typeparam>
+        /// <param name="ConnectionString">Gets or sets the SqlConnection used by this instance of the SqlCommand, The default value is null.</param>
+        /// <param name="SQL">The Transact-SQL statement or stored procedure to execute.</param>
+        /// <param name="CommandType">Gets or sets a value indicating how the CommandText property is to be interpreted, query or store procedure, text query by default</param>
+        /// <param name="Timeout">The time in seconds to wait for the command to execute. The default is 30 seconds. A value of 0 indicates no limit (an attempt to execute a command will wait indefinitely).</param>
+        /// <param name="Parameters">The parameters of the Transact-SQL statement or stored procedure. The default is an empty collection. Eje: new { p1 = 1 }, on multiple params Eje: new { p1 = 1, p2 = 5 }</param>
+        /// <returns></returns>
+        public dynamic FirstOrDefault(string ConnectionString, string SQL, params object[] Parameters) {
+
+            this.ConnectionString = ConnectionString;
+            CommandText = SQL;
+
+            this.DymanicParams(Parameters);
+            return FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Map one type of SQL query or store procedure to class model in automated and easy way.
+        /// EntityDataAccess relies completely on the properties from the model or class.
+        /// </summary>
+        /// <typeparam name="T">Entity to map</typeparam>
+        /// <param name="ConnectionString">Gets or sets the SqlConnection used by this instance of the SqlCommand, The default value is null.</param>
+        /// <param name="SQL">The Transact-SQL statement or stored procedure to execute.</param>
+        /// <param name="CommandType">Gets or sets a value indicating how the CommandText property is to be interpreted, query or store procedure, text query by default</param>
+        /// <param name="Timeout">The time in seconds to wait for the command to execute. The default is 30 seconds. A value of 0 indicates no limit (an attempt to execute a command will wait indefinitely).</param>
+        /// <param name="Parameters">The parameters of the Transact-SQL statement or stored procedure. The default is an empty collection. Eje: new { p1 = 1 }, on multiple params Eje: new { p1 = 1, p2 = 5 }</param>
+        /// <returns></returns>
+        public dynamic FirstOrDefault(string ConnectionString, string SQL, ICommandType CommandType = ICommandType.Text, int Timeout = 30, params object[] Parameters) {
+
+            this.ConnectionString = ConnectionString;
+            CommandText = SQL;
+            this.CommandType = CommandType;
+            CommandTimeOut = Timeout;
+
+            this.DymanicParams(Parameters);
+            return FirstOrDefault();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="SQL"></param>
+        /// <param name="Parameters"></param>
+        /// <returns></returns>
+        public dynamic FirstOrDefault(string SQL, params object[] Parameters) {
+
+            CommandText = SQL;
+
+            this.DymanicParams(Parameters);
+            return FirstOrDefault();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Parameters"></param>
+        private void DymanicParams(params object[] Parameters) {
+
+            for (int i = 0; i < Parameters.Length; i++) {
+
+                string[] items = Parameters[i].ToString().Split(',');
+
+                foreach (var subItems in items) {
+
+                    string[] keyVal = SetupParam(subItems).Split('=');
+                    AddParameter(keyVal[0], keyVal[1]);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Map one type of SQL query or store procedure on dynamic model in automated and easy way. 
+        /// </summary>
+        /// <typeparam name="T">Entity to map</typeparam>
+        /// <param name="ConnectionString">Gets or sets the SqlConnection used by this instance of the SqlCommand, The default value is null.</param>
+        /// <param name="SQL">The Transact-SQL statement or stored procedure to execute.</param>
+        /// <param name="Parameters">The parameters of the Transact-SQL statement or stored procedure. The default is an empty collection. Eje: new { p1 = 1 }, on multiple params Eje: new { p1 = 1, p2 = 5 }</param>
+        /// <returns></returns>
+        public IEnumerable<dynamic> Dynamic(string ConnectionString, string SQL, params object[] Parameters) {
+
+            this.ConnectionString = ConnectionString;
+            CommandText = SQL;
+
+            this.DymanicParams(Parameters);
+            return GetDynamic();
+        }
+
+        /// <summary>
+        /// Map one type of SQL query or store procedure on dynamic model in automated and easy way.
+        /// </summary>
+        /// <typeparam name="T">Entity to map</typeparam>
+        /// <param name="ConnectionString">Gets or sets the SqlConnection used by this instance of the SqlCommand, The default value is null.</param>
+        /// <param name="SQL">The Transact-SQL statement or stored procedure to execute.</param>
+        /// <param name="CommandType">Gets or sets a value indicating how the CommandText property is to be interpreted, query or store procedure, text query by default</param>
+        /// <param name="Timeout">The time in seconds to wait for the command to execute. The default is 30 seconds. A value of 0 indicates no limit (an attempt to execute a command will wait indefinitely).</param>
+        /// <param name="Parameters">The parameters of the Transact-SQL statement or stored procedure. The default is an empty collection. Eje: new { p1 = 1 }, on multiple params Eje: new { p1 = 1, p2 = 5 }</param>
+        /// <returns></returns>
+        public IEnumerable<dynamic> Dynamic(string ConnectionString, string SQL, ICommandType CommandType = ICommandType.Text, int Timeout = 30, params object[] Parameters) {
+
+            this.ConnectionString = ConnectionString;
+            CommandText = SQL;
+            this.CommandType = CommandType;
+            CommandTimeOut = Timeout;
+
+            this.DymanicParams(Parameters);
+            return GetDynamic();
+        }
+
+        private string SetupParam(string param) {
+
+            return string.Concat("@", param.Replace("{", string.Empty).Replace(" ", string.Empty).Replace("}", string.Empty).Replace(" ", string.Empty));
+        }
+
+        /// <summary>
+        /// Run a read-only query in the database and map a class with the return values
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns>List class object</returns>
+        public IEnumerable<T> ExecuteReader<T>() where T : new() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            var _list = new List<T>();
+
+            try {
+                using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
+                    using (SqlCommand _conn = new SqlCommand(CommandText, _strConn)) {
+
+                        _conn.CommandType = this.SetCommandType(CommandType);
+                        _conn.CommandTimeout = this.CommandTimeOut;
+                        _strConn.Open();
+
+                        if (SqlParameters.Count > 0) {
+                            _conn.Parameters.AddRange(SqlParameters.ToArray());
+                            SqlParameters.Clear();
+                        }
+                        using (SqlDataReader _dr = _conn.ExecuteReader()) {
+
+                            if (IsPrimitive<T>()) {
+
+                                _list = (from IDataRecord r in _dr
+                                         select (T)r[0]
+                                     ).ToList();
+
+                            }
+                            else {
+                                Func<SqlDataReader, T> readRow = GetReader<T>(_dr);
+
+                                while (_dr.Read()) {
+                                    _list.Add(readRow(_dr));
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) { InternalError = ex.Message; }
+            return _list;
+        }
+
+        /// <summary>
+        /// Run a read-only query in the database and map a class with the return values
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns>List class object</returns>
+        public async Task<IEnumerable<T>> ExecuteReaderAsync<T>() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            var _list = new List<T>();
+
+            try {
+                using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
+                    using (SqlCommand _conn = new SqlCommand(CommandText, _strConn)) {
+
+                        _conn.CommandType = this.SetCommandType(CommandType);
+                        _conn.CommandTimeout = this.CommandTimeOut;
+
+                        if (CancellationTokenSource != null) {
+                            CancellationToken = CancellationTokenSource.Token;
+                        }
+                        await _strConn.OpenAsync(CancellationToken);
+
+                        if (SqlParameters.Count > 0) {
+                            _conn.Parameters.AddRange(SqlParameters.ToArray());
+                            SqlParameters.Clear();
+                        }
+
+                        using (SqlDataReader _dr = await _conn.ExecuteReaderAsync(CancellationToken).ConfigureAwait(false)) {
+
+                            if (IsPrimitive<T>()) {
+
+                                _list = (from IDataRecord r in _dr
+                                         select (T)r[0]
+                                        ).ToList();
+
+                            }
+                            else {
+                                Func<SqlDataReader, T> readRow = GetReaderAs<T>(_dr);
+
+                                while (_dr.Read()) {
+                                    _list.Add(readRow(_dr));
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ex) { InternalError = ex.Message; }
+            return _list;
+        }
+
+        /// <summary>
+        /// Method for creating the dynamic entity for SQL query columns
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerable<dynamic> GetDynamic() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            using (SqlConnection conn = new SqlConnection(ConnectionString)) {
+                using (SqlCommand comm = new SqlCommand(CommandText, conn)) {
+
+                    comm.CommandType = this.SetCommandType(CommandType);
+                    comm.CommandTimeout = this.CommandTimeOut;
+                    conn.Open();
+
+                    if (SqlParameters.Count > 0) {
+                        comm.Parameters.AddRange(SqlParameters.ToArray());
+                        SqlParameters.Clear();
+                    }
+
+                    using (SqlDataReader _dr = comm.ExecuteReader()) {
+
+                        if (_dr.Read()) {
+
+                            do {
+                                dynamic tclass = new ExpandoObject();
+
+                                foreach (string col in this.GetColumnNames(_dr, false)) {
+                                    ((IDictionary<string, object>)tclass)[col] = _dr[col];
+                                }
+
+                                yield return tclass;
+                            } while (_dr.Read());
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public async Task<T> FirstOrDefaultAsync<T>() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            using (SqlConnection conn = new SqlConnection(ConnectionString)) {
+                using (SqlCommand comm = new SqlCommand(CommandText, conn)) {
+
+                    comm.CommandType = this.SetCommandType(CommandType);
+                    comm.CommandTimeout = this.CommandTimeOut;
+                    await conn.OpenAsync();
+
+                    if (SqlParameters.Count > 0) {
+                        comm.Parameters.AddRange(SqlParameters.ToArray());
+                        SqlParameters.Clear();
+                    }
+
+                    List<T> _list = new List<T>();
+
+                    using (SqlDataReader _dr = await comm.ExecuteReaderAsync().ConfigureAwait(false)) {
+
+                        bool isPrimitive = IsPrimitive<T>();
+
+                        if (isPrimitive) {
+
+                            _list = (from IDataRecord r in _dr
+                                     select (T)r[0]
+                                 ).ToList();
+
+                        }
+                        else {
+                            Func<SqlDataReader, T> readRow = GetReader<T>(_dr);
+                            bool c = false;
+
+                            while (await _dr.ReadAsync() && !c) {
+                                _list.Add(readRow(_dr));
+                                c = true;
+                                break;
+                            }
+
+                        }
+                    }
+                    return _list.FirstOrDefault();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public dynamic FirstOrDefault() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            using (SqlConnection conn = new SqlConnection(ConnectionString)) {
+                using (SqlCommand comm = new SqlCommand(CommandText, conn)) {
+
+                    comm.CommandType = this.SetCommandType(CommandType);
+                    comm.CommandTimeout = this.CommandTimeOut;
+                    conn.Open();
+
+                    if (SqlParameters.Count > 0) {
+                        comm.Parameters.AddRange(SqlParameters.ToArray());
+                        SqlParameters.Clear();
+                    }
+
+                    var obj = new ExpandoObject() as IDictionary<string, object>;
+
+                    using (SqlDataReader _dr = comm.ExecuteReader()) {
+
+                        if (_dr.Read()) {
+
+                            foreach (string col in this.GetColumnNames(_dr, false)) {
+
+                                obj.Add(col, _dr[col]);
+                            }
+                        }
+                    }
+                    return obj;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="reader"></param>
+        /// <returns></returns>
+        private List<string> GetColumnNames(SqlDataReader reader, bool UpperCompare) {
+
+            List<string> readerColumns = new List<string>();
+
+            for (int index = 0; index < reader.FieldCount; index++)
+                if (UpperCompare) {
+                    readerColumns.Add(reader.GetName(index).ToUpper());
+                }
+                else {
+                    readerColumns.Add(reader.GetName(index));
+                }
+            return readerColumns;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Entity"></param>
+        /// <returns></returns>
+        private string GetTableName<T>(T Entity) {
+            //Getting TableNAmeAtrribute from entity
+            var tableNameAttr = Entity.GetType().GetCustomAttributes(typeof(TableNameAttribute), false);
+            //If not found the TableNameAttribute raise an entity name
+            if (tableNameAttr.Length == 0)
+                return Entity.GetType().Name;
+            return ((TableNameAttribute)tableNameAttr[0]).Name;
+        }
+
+        private bool IsPrimitive<T>() => IsPrimitiveType(Expression.Parameter(typeof(T)));
+
+        private bool IsPrimitiveType(ParameterExpression parameter) {
+
+            var types = new Type[] {
+                        typeof(String),
+                        typeof(Char),
+                        typeof(Byte),
+                        typeof(Decimal),
+                        typeof(DateTime),
+                        typeof(DateTimeOffset),
+                        typeof(TimeSpan),
+                        typeof(Int16),
+                        typeof(Int32),
+                        typeof(Int64),
+                        //typeof(Boolean),
+                        typeof(Single),
+                        typeof(Double),
+            };
+            return types.Contains(parameter.Type);
+
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="reader"></param>
+        /// <returns></returns>
+        public Func<SqlDataReader, T> GetReader<T>(SqlDataReader reader) {
+
+            Delegate resDelegate;
+
+            if (!ExpressionCache.TryGetValue(typeof(T), out resDelegate)) {
+
+                // determine the information about the reader
+                var readerParam = Expression.Parameter(typeof(SqlDataReader), "reader");
+                var readerGetValue = typeof(SqlDataReader).GetMethod("GetValue");
+
+                // create a Constant expression of DBNull.Value to compare values to in reader
+                var dbNullExp = Expression.Field(expression: null, type: typeof(DBNull), fieldName: "Value");
+
+                // loop through the properties and create MemberBinding expressions for each property
+                List<MemberBinding> memberBindings = new List<MemberBinding>();
+
+                foreach (var prop in typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance)) {
+
+                    try {
+                        // determine the default value of the property
+                        object defaultValue = null;
+                        if (prop.PropertyType.IsValueType)
+                            defaultValue = Activator.CreateInstance(prop.PropertyType);
+                        else if (prop.PropertyType.Name.ToLower().Equals("string"))
+                            defaultValue = string.Empty;
+
+                        if (this.GetColumnNames(reader, true).Contains(prop.Name.ToUpper())) {
+                            // build the Call expression to retrieve the data value from the reader
+                            var indexExpression = Expression.Constant(reader.GetOrdinal(prop.Name));
+                            var getValueExp = Expression.Call(readerParam, readerGetValue, new Expression[] { indexExpression });
+
+                            // create the conditional expression to make sure the reader value != DBNull.Value
+                            var testExp = Expression.NotEqual(dbNullExp, getValueExp);
+                            var ifTrue = Expression.Convert(getValueExp, prop.PropertyType);
+                            var ifFalse = Expression.Convert(Expression.Constant(defaultValue), prop.PropertyType);
+
+                            // create the actual Bind expression to bind the value from the reader to the property value
+                            MemberInfo mi = typeof(T).GetMember(prop.Name)[0];
+                            MemberBinding mb = Expression.Bind(mi, Expression.Condition(testExp, ifTrue, ifFalse));
+                            memberBindings.Add(mb);
+                        }
+                    } catch (Exception ex) {
+                        InternalError += ex.Message;
+                        continue;
+                    }
+                }
+                try {
+                    var newItem = Expression.New(typeof(T));
+                    var memberInit = Expression.MemberInit(newItem, memberBindings);
+
+                    var lambda = Expression.Lambda<Func<SqlDataReader, T>>(memberInit, new ParameterExpression[] { readerParam });
+                    resDelegate = lambda.Compile();
+                    ExpressionCache[typeof(T)] = resDelegate;
+                } catch (Exception ex) { InternalError += ex.Message; }
+            }
+            return (Func<SqlDataReader, T>)resDelegate;
+        }
+
+        public Func<SqlDataReader, T> GetReaderAs<T>(SqlDataReader reader) {
+
+            Delegate resDelegate;
+
+            if (!ExpressionCache.TryGetValue(typeof(T), out resDelegate)) {
+
+                // determine the information about the reader
+                var readerParam = Expression.Parameter(typeof(SqlDataReader), "reader");
+                var readerGetValue = typeof(SqlDataReader).GetMethod("GetValue");
+
+                // create a Constant expression of DBNull.Value to compare values to in reader
+                var dbNullExp = Expression.Field(expression: null, type: typeof(DBNull), fieldName: "Value");
+
+                // loop through the properties and create MemberBinding expressions for each property
+                List<MemberBinding> memberBindings = new List<MemberBinding>();
+
+                foreach (var prop in typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance)) {
+
+                    try {
+                        // determine the default value of the property
+                        object defaultValue = null;
+                        if (prop.PropertyType.IsValueType)
+                            defaultValue = Activator.CreateInstance(prop.PropertyType);
+                        else if (prop.PropertyType.Name.ToLower().Equals("string"))
+                            defaultValue = string.Empty;
+
+                        if (this.GetColumnNames(reader, true).Contains(prop.Name.ToUpper())) {
+                            // build the Call expression to retrieve the data value from the reader
+                            var indexExpression = Expression.Constant(reader.GetOrdinal(prop.Name));
+                            var getValueExp = Expression.Call(readerParam, readerGetValue, new Expression[] { indexExpression });
+
+                            // create the conditional expression to make sure the reader value != DBNull.Value
+                            var testExp = Expression.NotEqual(dbNullExp, getValueExp);
+                            var ifTrue = Expression.Convert(getValueExp, prop.PropertyType);
+                            var ifFalse = Expression.Convert(Expression.Constant(defaultValue), prop.PropertyType);
+
+                            // create the actual Bind expression to bind the value from the reader to the property value
+                            MemberInfo mi = typeof(T).GetMember(prop.Name)[0];
+                            MemberBinding mb = Expression.Bind(mi, Expression.Condition(testExp, ifTrue, ifFalse));
+                            memberBindings.Add(mb);
+                        }
+                    } catch (Exception ex) {
+                        InternalError += ex.Message;
+                        continue;
+                    }
+                }
+
+                // create a MemberInit expression for the item with the member bindings
+                var newItem = Expression.New(typeof(T));
+                var memberInit = Expression.MemberInit(newItem, memberBindings);
+
+                var lambda = Expression.Lambda<Func<SqlDataReader, T>>(memberInit, new ParameterExpression[] { readerParam });
+                resDelegate = lambda.Compile();
+                ExpressionCache[typeof(T)] = resDelegate;
+            }
+            return (Func<SqlDataReader, T>)resDelegate;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="A"></typeparam>
+        /// <typeparam name="B"></typeparam>
+        /// <returns></returns>
+        public MultiQuery<A, B> ExecuteReader<A, B>() where A : new()
+                                                      where B : new() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText)) {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+
+            var _AList = new List<A>();
+            var _BList = new List<B>();
+            var mset = new MultiQuery<A, B>();
+
+            using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
+                using (SqlCommand _conn = new SqlCommand(CommandText, _strConn)) {
+
+                    _conn.CommandType = this.SetCommandType(CommandType);
+                    _conn.CommandTimeout = this.CommandTimeOut;
+                    _strConn.Open();
+
+                    if (SqlParameters.Count > 0) {
+                        _conn.Parameters.AddRange(SqlParameters.ToArray());
+                        SqlParameters.Clear();
+                    }
+                    using (SqlDataReader _dr = _conn.ExecuteReader()) {
+
+                        if (_dr.Read()) {
+
+                            _AList = this.MapEntityCollection<A>(_dr, false);
+                        }
+                        if (_dr.NextResult()) {
+
+                            _BList = this.MapEntityCollection<B>(_dr);
+                        }
+                    }
+                }
+            }
+
+            mset.Pro1 = _AList;
+            mset.Pro2 = _BList;
+
+            return mset;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dr"></param>
+        /// <param name="Closed"></param>
+        /// <returns></returns>
+        private List<T> MapEntityCollection<T>(IDataReader dr, bool Closed = true) where T : new() {
+
+            Type entityType = typeof(T);
+            List<T> entitys = new List<T>();
+            Hashtable hashtable = new Hashtable();
+            PropertyInfo[] properties = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+            foreach (PropertyInfo info in properties) {
+                hashtable[info.Name.ToUpper()] = info;
+            }
+
+            while (dr.Read()) {
+                T newObject = new T();
+                for (int index = 0; index < dr.FieldCount; index++) {
+                    try {
+                        PropertyInfo info = (PropertyInfo)hashtable[dr.GetName(index).ToUpper()];
+
+                        //bool isVirtual = info.GetGetMethod().IsVirtual;
+                        //if (isVirtual) {
+
+                        //}
+                        if ((info != null) && info.CanWrite) {
+                            info.SetValue(newObject, ChangeType.ChangeEntityType(dr.GetValue(index), info.PropertyType), null);
+                        }
+                    } catch {
+                        continue;
+                    }
+                }
+                entitys.Add(newObject);
+            }
+            if (Closed) {
+                dr.Close();
+            }
+            return entitys;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Entity"></param>
+        /// <param name="UseTransaction"></param>
+        /// <returns></returns>
+        public int Insert<T>(T Entity, bool UseTransaction = false) where T : new() {
+
+            if (CommandType == 0 || CommandType == ICommandType.Text) {
+
+                CommandText = SetCrudColumns(Entity, false);
+            }
+            return ToExecute(UseTransaction);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Entity"></param>
+        /// <param name="UseTransaction"></param>
+        /// <returns></returns>
+        public int Update<T>(T Entity, bool UseTransaction = false) where T : new() {
+
+            if (CommandType == 0 || CommandType == ICommandType.Text) {
+
+                CommandText = SetCrudColumns(Entity, true);
+            }
+            return ToExecute(UseTransaction);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Entity"></param>
+        /// <param name="UseTransaction"></param>
+        /// <returns></returns>
+        public int Delete<T>(T Entity, bool UseTransaction = false) where T : new() {
+
+            string query = string.Empty;
+            Type entityType = typeof(T);
+            string _tname = entityType.UnderlyingSystemType.Name;
+            PropertyInfo[] properties = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            StringBuilder sbParams = new StringBuilder();
+            bool isFirstTime = true;
+
+            foreach (PropertyInfo info in properties) {
+
+                var isPrimary = Attribute.GetCustomAttribute(info, typeof(PrimaryKeyAttribute)) as PrimaryKeyAttribute;
+
+                if (isPrimary != null) {
+
+                    string paramName = string.Concat("@", info.Name);
+                    var value = Entity.GetType().GetProperty(info.Name).GetValue(Entity, null);
+
+                    AddParameter(paramName, value);
+
+                    if (isFirstTime) {
+                        sbParams.AppendLine(string.Concat(paramName.Replace("@", string.Empty), " = ", value));
+                    }
+                    else {
+                        sbParams.AppendLine(string.Concat(" AND ", paramName.Replace("@", string.Empty), " = ", value));
+                    }
+
+                    isFirstTime = false;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(sbParams.ToString())) {
+                CommandText = "";
+                throw new ArgumentNullException("Delete key property not found");
+            }
+            else {
+                CommandText = string.Concat("DELETE FROM dbo.", _tname, " WHERE ", sbParams.ToString(), ";");
+            }
+
+            return ToExecute(UseTransaction);
+        }
+
+        private List<PropertyInfo> GetInterfaceProperties(Type type) {
+
+            return type.GetInterfaces().SelectMany(i => i.GetProperties(BindingFlags.Public | BindingFlags.Instance)).ToList();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="entity"></param>
+        /// <param name="IsUpdate"></param>
+        /// <returns></returns>   
+        private string SetCrudColumns<T>(T entity, bool IsUpdate) where T : new() {
+
+            string query = string.Empty;
+            _ifInserted = false;
+            //  if(!QueryCache.TryGetValue(typeof(T), out query)) {
+
+            //		string _other = query;
+            //}
+            Type entityType = typeof(T);
+            PropertyInfo[] properties = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var faceProd = GetInterfaceProperties(entityType);
+
+            StringBuilder sbColumns = new StringBuilder();
+            StringBuilder sbParams = new StringBuilder();
+            StringBuilder sbUpdate = new StringBuilder();
+            StringBuilder sbWhereParams = new StringBuilder();
+            //entityType.isp
+            string _tname = GetTableName(entity);
+            bool isFirstTime = true;
+            string _inserted = " OUTPUT INSERTED.";
+
+            foreach (PropertyInfo info in properties) {
+
+                bool isVirtual = typeof(T).GetProperty(info.Name).GetGetMethod().IsVirtual;
+
+                if (isVirtual & !faceProd.Any(x => x.Name == info.Name)) { continue; }
+
+                var isNoMap = Attribute.GetCustomAttribute(info, typeof(NotMappedAttribute)) as NotMappedAttribute;
+                if (isNoMap != null) { continue; }
+
+                var isNoInsertMap = Attribute.GetCustomAttribute(info, typeof(NoInsertAttribute)) as NoInsertAttribute;
+                if (isNoInsertMap != null && isNoInsertMap.NoInsert) { continue; }
+
+                var isNoUpdate = Attribute.GetCustomAttribute(info, typeof(NoUpdateAttribute)) as NoUpdateAttribute;
+
+                var computed = Attribute.GetCustomAttribute(info, typeof(ComputedAttribute)) as ComputedAttribute;
+                if (computed != null) { continue; }
+
+                var isRequired = Attribute.GetCustomAttribute(info, typeof(RequiredAttribute)) as RequiredAttribute;
+
+                var isPrimary = Attribute.GetCustomAttribute(info, typeof(PrimaryKeyAttribute)) as PrimaryKeyAttribute;
+
+                string paramName = string.Concat("@", info.Name);
+                var value = entity.GetType().GetProperty(info.Name).GetValue(entity, null);
+
+                if (isRequired != null && IsObjectNullOrEmpty(value)) {
+                    IsValidModel = false;
+                    InternalError += string.Concat("Property \"", info.Name, "\" is required" + Environment.NewLine);
+                    continue;
+                }
+
+                if (isPrimary == null || isPrimary.AutoIncrease == false) {
+
+                    //not columns update
+                    //sbColumns.AppendLine(string.Concat(info.Name, ","));
+                    //AddParameter(paramName, value);
+                    
+
+                    if (IsUpdate & isNoUpdate == null) {
+
+                        sbColumns.AppendLine(string.Concat(info.Name, ","));
+                        AddParameter(paramName, value);
+
+                    }else if (IsUpdate == false) {
+                        sbColumns.AppendLine(string.Concat(info.Name, ","));
+                        AddParameter(paramName, value);
+                    }
+                }
+                else if (isPrimary.AutoIncrease) {
+
+                    _ifInserted = true;
+                    _inserted = _inserted + info.Name;
+                }
+
+                if (IsUpdate) {
+
+                    _ifInserted = false;
+                    if (isNoUpdate != null && isNoUpdate.NoUpdate) { continue; }
+                    if (isFirstTime) {
+
+                        string upColumnName = string.Concat(info.Name, " = ", paramName);
+
+                        if (isPrimary != null) {
+                            AddParameter(paramName, value);
+                            sbWhereParams.AppendLine(upColumnName);
+                        }
+                        else {
+                            sbUpdate.AppendLine(upColumnName);
+                        }
+                    }
+                    else {
+
+                        string upParamName = string.Concat(",", info.Name, " = ", paramName);
+
+                        if (isPrimary != null) {
+                            AddParameter(paramName, value);
+                            sbWhereParams.AppendLine(upParamName.Replace(",", " AND "));
+                        }
+                        else {
+                            sbUpdate.AppendLine(upParamName);
+                        }
+                    }
+                    isFirstTime = false;
+                }
+                else {
+                    if (isNoInsertMap != null) { continue; }
+                    paramName = isFirstTime ? paramName : string.Concat(",", paramName);
+
+                    if (isPrimary == null || isPrimary.AutoIncrease == false) {
+                        sbParams.AppendLine(paramName);
+                    }
+                }
+                isFirstTime = false;
+            }
+
+            if (IsValidModel == false) {
+                query = "";
+                throw new ArgumentNullException("Model not valid, check required propertys");
+            }
+
+            if (IsUpdate) {
+                if (string.IsNullOrWhiteSpace(sbWhereParams.ToString())) {
+                    query = "";
+                    throw new ArgumentNullException("Update primary key property not found");
+                }
+                else {
+                    query = string.Concat("UPDATE ", _tname, " SET ", sbUpdate, " WHERE ", sbWhereParams.ToString());
+                    if (query.Contains("SET ,")) { query = query.Replace("SET ,", "SET "); }
+                }
+            }
+            else {
+
+                string _columns = sbColumns.ToString();
+                string _param = sbParams.ToString();
+                if (_param.StartsWith(",")) {
+                    _param = _param.Remove(0, 1);
+                }
+                _columns = _columns.EndsWith(",\r\n") ? _columns.Remove(_columns.Length - 3, 1) : string.Empty;
+
+                query = string.Concat("INSERT INTO ", _tname, " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
+            }
+            //QueryCache[typeof(T)] = query;
+            SqlText = query;
+            return query;
+        }
+
+        private bool IsObjectNullOrEmpty(object value) {
+
+            if (value == null) {
+                return true;
+            }
+
+            if (value.GetType() == typeof(string)) {
+                if (value is string && string.IsNullOrEmpty((string)(value))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public bool IsPropertyACollection(PropertyInfo property) {
+            return property.PropertyType.IsGenericType &&
+                    property.PropertyType.GetGenericTypeDefinition() == typeof(IList<>);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void InfoMessageRequest(object sender, SqlInfoMessageEventArgs e) {
+
+            _infoMessage = null;
+            foreach (var error in e.Errors) {
+                _infoMessage.Add(string.Format("Source {0} $ Message{1} $ error{2}", e.Source, e.Message, error.ToString()));
+            }
+        }
+
+        public static void Create(Action<EntityDataAccess> Execution) {
+
+            EntityDataAccess db = new EntityDataAccess();
+            try {
+                Execution(db);
+            }
+            finally {
+            }
+        }
+
+        public void Dispose() {
+            //Cleanup();
+            GC.SuppressFinalize(this);
+        }
+
+        public class MultiQuery<T, T2> where T : new()
+                                       where T2 : new() {
+
+            public List<T> Pro1 { get; set; }
+            public List<T2> Pro2 { get; set; }
+        }
+    }
+
+}
