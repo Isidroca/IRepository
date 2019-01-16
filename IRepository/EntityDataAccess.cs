@@ -5,7 +5,6 @@ using System.Reflection;
 using System.Data.SqlClient;
 using System.Data;
 using System.Collections;
-using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Dynamic;
 using System.Collections.Concurrent;
@@ -21,7 +20,6 @@ namespace EntityRepository {
         public string CommandText { get; set; }
         public ICommandType CommandType { get; set; }
         public string InternalError = string.Empty;
-        private string _sqlText { get; set; }
         public string SqlText { get; private set; }
         public Exception Exception { get; private set; }
         public int CommandTimeOut = 30;
