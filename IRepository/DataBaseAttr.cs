@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace ProFix.Repository {
+namespace EntityRepository {
 
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
     public class TableNameAttribute : Attribute {
@@ -109,6 +109,32 @@ namespace ProFix.Repository {
         /// <param name="Name">Computed, no crud</param>
         public ComputedAttribute() {
             Computed = true;
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property)]
+    public class UpperCaseAttribute : Attribute {
+        public bool UpperCase { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Name">UpperCase to string values</param>
+        public UpperCaseAttribute() {
+            UpperCase = true;
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property)]
+    public class LowerCaseAttribute : Attribute {
+        public bool LowerCase { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Name">LowerCase to string values</param>
+        public LowerCaseAttribute() {
+            LowerCase = true;
         }
     }
 }

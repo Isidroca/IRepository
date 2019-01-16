@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ProFix.Repository {
+namespace EntityRepository {
 
 	public class Field {
 

@@ -5,8 +5,7 @@ using System.Text;
 using System.Reflection;
 using System.Data;
 
-namespace ProFix.Repository
-{
+namespace EntityRepository {
     public class ConvertEntity {
 
         public static DataTable ConvertToDataTable<T>(IEnumerable<T> list) {

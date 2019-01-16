@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Reflection;
 
-namespace ProFix.Repository
-{
+namespace EntityRepository {
    public static class DataTableHelper
     {
       public static List<T> DataTableToList<T>(this DataTable table) where T : class, new() {

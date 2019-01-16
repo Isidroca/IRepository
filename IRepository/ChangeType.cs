@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace ProFix.Repository
+namespace EntityRepository
 {
    internal static class ChangeType
     {

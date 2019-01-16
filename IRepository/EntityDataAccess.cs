@@ -13,11 +13,8 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using System.Threading;
 
-namespace ProFix.Repository  {
+namespace EntityRepository {
 
-    /// <summary>
-    /// IData - a simple object mapper for .Net - ICalderon
-    /// </summary>
     public class EntityDataAccess : IDisposable {
 
         public string ConnectionString { get; set; }
@@ -26,6 +23,7 @@ namespace ProFix.Repository  {
         public string InternalError = string.Empty;
         private string _sqlText { get; set; }
         public string SqlText { get; private set; }
+        public Exception Exception { get; private set; }
         public int CommandTimeOut = 30;
         protected int _durationTime = 0;
         public int QueryDurationTime {
@@ -180,9 +178,11 @@ namespace ProFix.Repository  {
                         SqlDataAdapter _da = new SqlDataAdapter(_sqlComand);
                         _da.Fill(_dt);
                     } catch (SqlException ex) {
+                        Exception = ex;
                         InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return null;
                     } catch (Exception ex) {
+                        Exception = ex;
                         InternalError = ex.Message.ToString();
                     }
                 }
@@ -222,9 +222,11 @@ namespace ProFix.Repository  {
                         SqlDataAdapter _da = new SqlDataAdapter(_sqlComand);
                         _da.Fill(_dt);
                     } catch (SqlException ex) {
+                        Exception = ex;
                         InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return null;
                     } catch (Exception ex) {
+                        Exception = ex;
                         InternalError = ex.Message.ToString();
                     }
                 }
@@ -261,9 +263,11 @@ namespace ProFix.Repository  {
                         return _sqlComand.ExecuteScalar();
 
                     } catch (SqlException ex) {
+                        Exception = ex;
                         InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return 0;
                     } catch (Exception ex) {
+                        Exception = ex;
                         InternalError = ex.Message.ToString();
                         return 0;
                     }
@@ -300,9 +304,11 @@ namespace ProFix.Repository  {
                         return await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false);
 
                     } catch (SqlException ex) {
+                        Exception = ex;
                         InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return 0;
                     } catch (Exception ex) {
+                        Exception = ex;
                         InternalError = ex.Message.ToString();
                         return 0;
                     }
@@ -342,9 +348,11 @@ namespace ProFix.Repository  {
                             return _sqlComand.ExecuteNonQuery();
 
                     } catch (SqlException ex) {
+                        Exception = ex;
                         InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return 0;
                     } catch (Exception ex) {
+                        Exception = ex;
                         InternalError = ex.Message.ToString();
                         return 0;
                     }
@@ -384,50 +392,17 @@ namespace ProFix.Repository  {
                             return await _sqlComand.ExecuteNonQueryAsync().ConfigureAwait(false);
 
                     } catch (SqlException ex) {
+                        Exception = ex;
                         InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return 0;
                     } catch (Exception ex) {
+                        Exception = ex;
                         InternalError = ex.Message.ToString();
                         return 0;
                     }
                 }
             }
         }
-
-        /// <summary>
-        /// Execute transactions on the database with sql transaction and return the number of rows effected.
-        /// </summary>
-        /// <param name="SQLConnection">SQL Connection</param>
-        /// <param name="SQLTransaction">SQL Transaction</param>
-        /// <returns>int, return the number of rows effected</returns>
-        //public int ExecuteNonQuery(SqlConnection SQLConnection, SqlTransaction SQLTransaction) {
-
-        //    if (string.IsNullOrWhiteSpace(CommandText)) {
-        //        throw new ArgumentNullException("CommandText can not be blank");
-        //    }
-
-        //    SqlCommand _sqlComand = SQLConnection.CreateCommand();
-
-        //    try {
-        //        _sqlComand.CommandType = this.SetCommandType(CommandType);
-        //        _sqlComand.CommandText = this.CommandText;
-        //        _sqlComand.CommandTimeout = this.CommandTimeOut;
-        //        if (SqlParameters.Count > 0) {
-        //            _sqlComand.Parameters.AddRange(SqlParameters.ToArray());
-        //            SqlParameters.Clear();
-        //        }
-        //        _sqlComand.Connection = SQLConnection;
-        //        _sqlComand.Transaction = SQLTransaction;
-
-        //        return _sqlComand.ExecuteNonQuery();
-        //    } catch (SqlException ex) {
-        //        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
-        //        return 0;
-        //    } catch (Exception ex) {
-        //        InternalError = ex.Message.ToString();
-        //        return 0;
-        //    }
-        //}
 
         public int ToExecute(bool UseTransaction) {
 
@@ -497,10 +472,12 @@ namespace ProFix.Repository  {
 
                 return _sqlComand.ExecuteNonQuery();
             } catch (SqlException ex) {
+                Exception = ex;
                 DisponseConn();
                 InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                 return 0;
             } catch (Exception ex) {
+                Exception = ex;
                 DisponseConn();
                 InternalError = ex.Message.ToString();
                 return 0;
@@ -550,10 +527,12 @@ namespace ProFix.Repository  {
 
                 return await _sqlComand.ExecuteNonQueryAsync().ConfigureAwait(false);
             } catch (SqlException ex) {
+                Exception = ex;
                 DisponseConn();
                 InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                 return 0;
             } catch (Exception ex) {
+                Exception = ex;
                 DisponseConn();
                 InternalError = ex.Message.ToString();
                 return 0;
@@ -609,9 +588,11 @@ namespace ProFix.Repository  {
                         _sqlComand.ExecuteNonQuery();
                         return _sqlComand.Parameters[ReturnVariableName].Value;
                     } catch (SqlException ex) {
+                        Exception = ex;
                         InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return 0;
                     } catch (Exception ex) {
+                        Exception = ex;
                         InternalError = ex.Message.ToString();
                         return 0;
                     }
@@ -657,9 +638,11 @@ namespace ProFix.Repository  {
                         await _sqlComand.ExecuteNonQueryAsync().ConfigureAwait(false);
                         return _sqlComand.Parameters[ReturnVariableName].Value;
                     } catch (SqlException ex) {
+                        Exception = ex;
                         InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return 0;
                     } catch (Exception ex) {
+                        Exception = ex;
                         InternalError = ex.Message.ToString();
                         return 0;
                     }
@@ -677,8 +660,7 @@ namespace ProFix.Repository  {
             SqlParameter lp = new SqlParameter();
             lp.ParameterName = Key;
             lp.Value = Value == null ? DBNull.Value : Value;
-            if (!SqlParameters.Any(x => x.ParameterName == Key)) { 
-   
+            if (!SqlParameters.Where(x => x.ParameterName == Key).Any()) {
                 SqlParameters.Add(lp);
             }
         }
@@ -950,7 +932,7 @@ namespace ProFix.Repository  {
                         }
                     }
                 }
-            } catch (Exception ex) { InternalError = ex.Message; }
+            } catch (Exception ex) { Exception = ex; InternalError = ex.Message; }
             return _list;
         }
 
@@ -998,7 +980,7 @@ namespace ProFix.Repository  {
 
                             }
                             else {
-                                Func<SqlDataReader, T> readRow = GetReaderAs<T>(_dr);
+                                Func<SqlDataReader, T> readRow = GetReader<T>(_dr);
 
                                 while (_dr.Read()) {
                                     _list.Add(readRow(_dr));
@@ -1007,7 +989,7 @@ namespace ProFix.Repository  {
                         }
                     }
                 }
-            } catch (Exception ex) { InternalError = ex.Message; }
+            } catch (Exception ex) { Exception = ex; InternalError = ex.Message; }
             return _list;
         }
 
@@ -1070,47 +1052,49 @@ namespace ProFix.Repository  {
             if (string.IsNullOrWhiteSpace(CommandText)) {
                 throw new ArgumentNullException("CommandText can not be blank");
             }
+            try {
+                using (SqlConnection conn = new SqlConnection(ConnectionString)) {
+                    using (SqlCommand comm = new SqlCommand(CommandText, conn)) {
 
-            using (SqlConnection conn = new SqlConnection(ConnectionString)) {
-                using (SqlCommand comm = new SqlCommand(CommandText, conn)) {
+                        comm.CommandType = this.SetCommandType(CommandType);
+                        comm.CommandTimeout = this.CommandTimeOut;
+                        await conn.OpenAsync();
 
-                    comm.CommandType = this.SetCommandType(CommandType);
-                    comm.CommandTimeout = this.CommandTimeOut;
-                    await conn.OpenAsync();
-
-                    if (SqlParameters.Count > 0) {
-                        comm.Parameters.AddRange(SqlParameters.ToArray());
-                        SqlParameters.Clear();
-                    }
-
-                    List<T> _list = new List<T>();
-
-                    using (SqlDataReader _dr = await comm.ExecuteReaderAsync().ConfigureAwait(false)) {
-
-                        bool isPrimitive = IsPrimitive<T>();
-
-                        if (isPrimitive) {
-
-                            _list = (from IDataRecord r in _dr
-                                     select (T)r[0]
-                                 ).ToList();
-
+                        if (SqlParameters.Count > 0) {
+                            comm.Parameters.AddRange(SqlParameters.ToArray());
+                            SqlParameters.Clear();
                         }
-                        else {
-                            Func<SqlDataReader, T> readRow = GetReader<T>(_dr);
-                            bool c = false;
 
-                            while (await _dr.ReadAsync() && !c) {
-                                _list.Add(readRow(_dr));
-                                c = true;
-                                break;
+                        List<T> _list = new List<T>();
+
+                        using (SqlDataReader _dr = await comm.ExecuteReaderAsync().ConfigureAwait(false)) {
+
+                            bool isPrimitive = IsPrimitive<T>();
+
+                            if (isPrimitive) {
+
+                                _list = (from IDataRecord r in _dr
+                                         select (T)r[0]
+                                     ).ToList();
+
                             }
+                            else {
+                                Func<SqlDataReader, T> readRow = GetReader<T>(_dr);
+                                bool c = false;
 
+                                while (await _dr.ReadAsync() && !c) {
+                                    _list.Add(readRow(_dr));
+                                    c = true;
+                                    break;
+                                }
+
+                            }
                         }
+                        return _list.FirstOrDefault();
                     }
-                    return _list.FirstOrDefault();
                 }
-            }
+            } catch (Exception ex) { Exception = ex; InternalError = ex.Message; return default(T); }
+
         }
 
         /// <summary>
@@ -1126,34 +1110,35 @@ namespace ProFix.Repository  {
             if (string.IsNullOrWhiteSpace(CommandText)) {
                 throw new ArgumentNullException("CommandText can not be blank");
             }
+            try {
+                using (SqlConnection conn = new SqlConnection(ConnectionString)) {
+                    using (SqlCommand comm = new SqlCommand(CommandText, conn)) {
 
-            using (SqlConnection conn = new SqlConnection(ConnectionString)) {
-                using (SqlCommand comm = new SqlCommand(CommandText, conn)) {
+                        comm.CommandType = this.SetCommandType(CommandType);
+                        comm.CommandTimeout = this.CommandTimeOut;
+                        conn.Open();
 
-                    comm.CommandType = this.SetCommandType(CommandType);
-                    comm.CommandTimeout = this.CommandTimeOut;
-                    conn.Open();
+                        if (SqlParameters.Count > 0) {
+                            comm.Parameters.AddRange(SqlParameters.ToArray());
+                            SqlParameters.Clear();
+                        }
 
-                    if (SqlParameters.Count > 0) {
-                        comm.Parameters.AddRange(SqlParameters.ToArray());
-                        SqlParameters.Clear();
-                    }
+                        var obj = new ExpandoObject() as IDictionary<string, object>;
 
-                    var obj = new ExpandoObject() as IDictionary<string, object>;
+                        using (SqlDataReader _dr = comm.ExecuteReader()) {
 
-                    using (SqlDataReader _dr = comm.ExecuteReader()) {
+                            if (_dr.Read()) {
 
-                        if (_dr.Read()) {
+                                foreach (string col in this.GetColumnNames(_dr, false)) {
 
-                            foreach (string col in this.GetColumnNames(_dr, false)) {
-
-                                obj.Add(col, _dr[col]);
+                                    obj.Add(col, _dr[col]);
+                                }
                             }
                         }
+                        return obj;
                     }
-                    return obj;
                 }
-            }
+            } catch (Exception ex) { Exception = ex; InternalError = ex.Message; return null; }
         }
 
         /// <summary>
@@ -1190,24 +1175,33 @@ namespace ProFix.Repository  {
             return ((TableNameAttribute)tableNameAttr[0]).Name;
         }
 
+        private bool CheckEntityUpperCase<T>(T Entity) {
+            var isUpper = Entity.GetType().GetCustomAttributes(typeof(UpperCaseAttribute), false);
+            return isUpper.Any() ? true : false;
+        }
+
+        private bool CheckEntityLowerCase<T>(T Entity) {
+            var isLower = Entity.GetType().GetCustomAttributes(typeof(LowerCaseAttribute), false);
+            return isLower.Any() ? true : false;
+        }
+
         private bool IsPrimitive<T>() => IsPrimitiveType(Expression.Parameter(typeof(T)));
 
         private bool IsPrimitiveType(ParameterExpression parameter) {
 
             var types = new Type[] {
-                        typeof(String),
-                        typeof(Char),
-                        typeof(Byte),
-                        typeof(Decimal),
+                        typeof(string),
+                        typeof(char),
+                        typeof(byte),
+                        typeof(decimal),
                         typeof(DateTime),
                         typeof(DateTimeOffset),
                         typeof(TimeSpan),
-                        typeof(Int16),
-                        typeof(Int32),
-                        typeof(Int64),
-                        //typeof(Boolean),
-                        typeof(Single),
-                        typeof(Double),
+                        typeof(short),
+                        typeof(int),
+                        typeof(long),
+                        typeof(float),
+                        typeof(double),
             };
             return types.Contains(parameter.Type);
 
@@ -1261,6 +1255,7 @@ namespace ProFix.Repository  {
                             memberBindings.Add(mb);
                         }
                     } catch (Exception ex) {
+                        Exception = ex;
                         InternalError += ex.Message;
                         continue;
                     }
@@ -1272,65 +1267,7 @@ namespace ProFix.Repository  {
                     var lambda = Expression.Lambda<Func<SqlDataReader, T>>(memberInit, new ParameterExpression[] { readerParam });
                     resDelegate = lambda.Compile();
                     ExpressionCache[typeof(T)] = resDelegate;
-                } catch (Exception ex) { InternalError += ex.Message; }
-            }
-            return (Func<SqlDataReader, T>)resDelegate;
-        }
-
-        public Func<SqlDataReader, T> GetReaderAs<T>(SqlDataReader reader) {
-
-            Delegate resDelegate;
-
-            if (!ExpressionCache.TryGetValue(typeof(T), out resDelegate)) {
-
-                // determine the information about the reader
-                var readerParam = Expression.Parameter(typeof(SqlDataReader), "reader");
-                var readerGetValue = typeof(SqlDataReader).GetMethod("GetValue");
-
-                // create a Constant expression of DBNull.Value to compare values to in reader
-                var dbNullExp = Expression.Field(expression: null, type: typeof(DBNull), fieldName: "Value");
-
-                // loop through the properties and create MemberBinding expressions for each property
-                List<MemberBinding> memberBindings = new List<MemberBinding>();
-
-                foreach (var prop in typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance)) {
-
-                    try {
-                        // determine the default value of the property
-                        object defaultValue = null;
-                        if (prop.PropertyType.IsValueType)
-                            defaultValue = Activator.CreateInstance(prop.PropertyType);
-                        else if (prop.PropertyType.Name.ToLower().Equals("string"))
-                            defaultValue = string.Empty;
-
-                        if (this.GetColumnNames(reader, true).Contains(prop.Name.ToUpper())) {
-                            // build the Call expression to retrieve the data value from the reader
-                            var indexExpression = Expression.Constant(reader.GetOrdinal(prop.Name));
-                            var getValueExp = Expression.Call(readerParam, readerGetValue, new Expression[] { indexExpression });
-
-                            // create the conditional expression to make sure the reader value != DBNull.Value
-                            var testExp = Expression.NotEqual(dbNullExp, getValueExp);
-                            var ifTrue = Expression.Convert(getValueExp, prop.PropertyType);
-                            var ifFalse = Expression.Convert(Expression.Constant(defaultValue), prop.PropertyType);
-
-                            // create the actual Bind expression to bind the value from the reader to the property value
-                            MemberInfo mi = typeof(T).GetMember(prop.Name)[0];
-                            MemberBinding mb = Expression.Bind(mi, Expression.Condition(testExp, ifTrue, ifFalse));
-                            memberBindings.Add(mb);
-                        }
-                    } catch (Exception ex) {
-                        InternalError += ex.Message;
-                        continue;
-                    }
-                }
-
-                // create a MemberInit expression for the item with the member bindings
-                var newItem = Expression.New(typeof(T));
-                var memberInit = Expression.MemberInit(newItem, memberBindings);
-
-                var lambda = Expression.Lambda<Func<SqlDataReader, T>>(memberInit, new ParameterExpression[] { readerParam });
-                resDelegate = lambda.Compile();
-                ExpressionCache[typeof(T)] = resDelegate;
+                } catch (Exception ex) { Exception = ex; InternalError += ex.Message; }
             }
             return (Func<SqlDataReader, T>)resDelegate;
         }
@@ -1539,8 +1476,10 @@ namespace ProFix.Repository  {
             StringBuilder sbParams = new StringBuilder();
             StringBuilder sbUpdate = new StringBuilder();
             StringBuilder sbWhereParams = new StringBuilder();
-            //entityType.isp
+
             string _tname = GetTableName(entity);
+            bool isUpperCase = CheckEntityUpperCase(entity);
+            bool isLowerCase = CheckEntityLowerCase(entity);
             bool isFirstTime = true;
             string _inserted = " OUTPUT INSERTED.";
 
@@ -1557,16 +1496,27 @@ namespace ProFix.Repository  {
                 if (isNoInsertMap != null && isNoInsertMap.NoInsert) { continue; }
 
                 var isNoUpdate = Attribute.GetCustomAttribute(info, typeof(NoUpdateAttribute)) as NoUpdateAttribute;
+                // if (isNoUpdate != null && isNoUpdate.NoUpdate) { continue; }
 
                 var computed = Attribute.GetCustomAttribute(info, typeof(ComputedAttribute)) as ComputedAttribute;
                 if (computed != null) { continue; }
 
                 var isRequired = Attribute.GetCustomAttribute(info, typeof(RequiredAttribute)) as RequiredAttribute;
-
                 var isPrimary = Attribute.GetCustomAttribute(info, typeof(PrimaryKeyAttribute)) as PrimaryKeyAttribute;
+                var toUpperAtt = Attribute.GetCustomAttribute(info, typeof(UpperCaseAttribute)) as UpperCaseAttribute;
+                var toLowerAtt = Attribute.GetCustomAttribute(info, typeof(LowerCaseAttribute)) as LowerCaseAttribute;
 
                 string paramName = string.Concat("@", info.Name);
-                var value = entity.GetType().GetProperty(info.Name).GetValue(entity, null);
+                object value;
+
+                value = entity.GetType().GetProperty(info.Name).GetValue(entity, null);
+
+                if ((toUpperAtt != null || isUpperCase) && value is string u && !IsObjectNullOrEmpty(value)) {
+                    value = u.ToUpper();
+                }
+                if ((toLowerAtt != null || isLowerCase) && value is string l && !IsObjectNullOrEmpty(value)) {
+                    value = l.ToLower();
+                }
 
                 if (isRequired != null && IsObjectNullOrEmpty(value)) {
                     IsValidModel = false;
@@ -1576,20 +1526,8 @@ namespace ProFix.Repository  {
 
                 if (isPrimary == null || isPrimary.AutoIncrease == false) {
 
-                    //not columns update
-                    //sbColumns.AppendLine(string.Concat(info.Name, ","));
-                    //AddParameter(paramName, value);
-                    
-
-                    if (IsUpdate & isNoUpdate == null) {
-
-                        sbColumns.AppendLine(string.Concat(info.Name, ","));
-                        AddParameter(paramName, value);
-
-                    }else if (IsUpdate == false) {
-                        sbColumns.AppendLine(string.Concat(info.Name, ","));
-                        AddParameter(paramName, value);
-                    }
+                    sbColumns.AppendLine(string.Concat(info.Name, ","));
+                    AddParameter(paramName, value);
                 }
                 else if (isPrimary.AutoIncrease) {
 
@@ -1649,7 +1587,7 @@ namespace ProFix.Repository  {
                     throw new ArgumentNullException("Update primary key property not found");
                 }
                 else {
-                    query = string.Concat("UPDATE ", _tname, " SET ", sbUpdate, " WHERE ", sbWhereParams.ToString());
+                    query = string.Concat("UPDATE dbo.", _tname, " SET ", sbUpdate, " WHERE ", sbWhereParams.ToString());
                     if (query.Contains("SET ,")) { query = query.Replace("SET ,", "SET "); }
                 }
             }
@@ -1662,7 +1600,7 @@ namespace ProFix.Repository  {
                 }
                 _columns = _columns.EndsWith(",\r\n") ? _columns.Remove(_columns.Length - 3, 1) : string.Empty;
 
-                query = string.Concat("INSERT INTO ", _tname, " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
+                query = string.Concat("INSERT INTO dbo.", _tname, " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
             }
             //QueryCache[typeof(T)] = query;
             SqlText = query;

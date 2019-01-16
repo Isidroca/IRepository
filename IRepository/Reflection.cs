@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ProFix.Repository {
+namespace EntityRepository {
     public	class Reflection {
 
 	static void WriteColumnMappings<T>(T item) where T : new() {
