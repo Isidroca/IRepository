@@ -1524,8 +1524,11 @@ namespace EntityRepository {
 
                 if (isPrimary == null || isPrimary.AutoIncrease == false) {
 
-                    sbColumns.AppendLine(string.Concat(info.Name, ","));
-                    AddParameter(paramName, value);
+                    if (isNoUpdate == null)
+                    {
+                        sbColumns.AppendLine(string.Concat(info.Name, ","));
+                        AddParameter(paramName, value);
+                    }
                 }
                 else if (isPrimary.AutoIncrease) {
 
@@ -1585,7 +1588,7 @@ namespace EntityRepository {
                     throw new ArgumentNullException("Update primary key property not found");
                 }
                 else {
-                    query = string.Concat("UPDATE dbo.", _tname, " SET ", sbUpdate, " WHERE ", sbWhereParams.ToString());
+                    query = string.Concat("UPDATE ", _tname, " SET ", sbUpdate, " WHERE ", sbWhereParams.ToString());
                     if (query.Contains("SET ,")) { query = query.Replace("SET ,", "SET "); }
                 }
             }
@@ -1598,7 +1601,7 @@ namespace EntityRepository {
                 }
                 _columns = _columns.EndsWith(",\r\n") ? _columns.Remove(_columns.Length - 3, 1) : string.Empty;
 
-                query = string.Concat("INSERT INTO dbo.", _tname, " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
+                query = string.Concat("INSERT INTO ", _tname, " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
             }
             //QueryCache[typeof(T)] = query;
             SqlText = query;
