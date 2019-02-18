@@ -735,6 +735,11 @@ namespace EntityRepository {
             return ExecuteReader<T>();
         }
 
+        public T FirstOrDefault<T>(string SQL) {
+
+            return FirstOrDefault();
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -748,6 +753,18 @@ namespace EntityRepository {
 
             this.DymanicParams(Parameters);
             return FirstOrDefault();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="SQL"></param>
+        /// <returns></returns>
+        public async Task<T> FirstOrDefaultAsync<T>(string SQL) {
+
+            CommandText = SQL;
+            return await FirstOrDefaultAsync<T>();
         }
 
         /// <summary>
