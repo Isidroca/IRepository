@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.28307.271
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EntityRepository", "IRepository\EntityRepository.csproj", "{A57440DD-3733-4106-94C7-F8A2C64DB963}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EntityRepository.Test", "EntityRepository.Test\EntityRepository.Test.csproj", "{68E30899-77D8-40B3-AF59-74544F97ED5B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{A57440DD-3733-4106-94C7-F8A2C64DB963}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A57440DD-3733-4106-94C7-F8A2C64DB963}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A57440DD-3733-4106-94C7-F8A2C64DB963}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68E30899-77D8-40B3-AF59-74544F97ED5B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68E30899-77D8-40B3-AF59-74544F97ED5B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68E30899-77D8-40B3-AF59-74544F97ED5B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68E30899-77D8-40B3-AF59-74544F97ED5B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1393,7 +1393,7 @@ namespace EntityRepository {
 
             if (CommandType == 0 || CommandType == ICommandType.Text) {
 
-                CommandText = SetCrudColumns(Entity, false);
+                CommandText = insertQuery(Entity);
             }
             return ToExecute(UseTransaction);
         }
@@ -1541,7 +1541,7 @@ namespace EntityRepository {
 
                 if (isPrimary == null || isPrimary.AutoIncrease == false) {
 
-                    if (isNoUpdate == null)
+                    if (isNoUpdate == null & IsUpdate)
                     {
                         sbColumns.AppendLine(string.Concat(info.Name, ","));
                         AddParameter(paramName, value);
@@ -1621,6 +1621,222 @@ namespace EntityRepository {
                 query = string.Concat("INSERT INTO ", _tname, " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
             }
             //QueryCache[typeof(T)] = query;
+            SqlText = query;
+            return query;
+        }
+
+        protected string insertQuery<T>(T entity) {
+
+            string query = string.Empty;
+            _ifInserted = false;
+            Type entityType = typeof(T);
+            PropertyInfo[] properties = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var faceProd = GetInterfaceProperties(entityType);
+
+            StringBuilder sbColumns = new StringBuilder();
+            StringBuilder sbParams = new StringBuilder();
+            StringBuilder sbUpdate = new StringBuilder();
+            StringBuilder sbWhereParams = new StringBuilder();
+
+            string _tname = GetTableName(entity);
+            bool isUpperCase = CheckEntityUpperCase(entity);
+            bool isLowerCase = CheckEntityLowerCase(entity);
+            bool isFirstTime = true;
+            string _inserted = " OUTPUT INSERTED.";
+
+            foreach (PropertyInfo info in properties) {
+
+                bool isVirtual = typeof(T).GetProperty(info.Name).GetGetMethod().IsVirtual;
+
+                if (isVirtual & !faceProd.Any(x => x.Name == info.Name)) { continue; }
+
+                var isNoInsertMap = Attribute.GetCustomAttribute(info, typeof(NoInsertAttribute)) as NoInsertAttribute;
+                if (isNoInsertMap != null && isNoInsertMap.NoInsert) { continue; }
+
+                var computed = Attribute.GetCustomAttribute(info, typeof(ComputedAttribute)) as ComputedAttribute;
+                if (computed != null) { continue; }
+
+                var isRequired = Attribute.GetCustomAttribute(info, typeof(RequiredAttribute)) as RequiredAttribute;
+                var isPrimary = Attribute.GetCustomAttribute(info, typeof(PrimaryKeyAttribute)) as PrimaryKeyAttribute;
+                var toUpperAtt = Attribute.GetCustomAttribute(info, typeof(UpperCaseAttribute)) as UpperCaseAttribute;
+                var toLowerAtt = Attribute.GetCustomAttribute(info, typeof(LowerCaseAttribute)) as LowerCaseAttribute;
+
+                string paramName = string.Concat("@", info.Name);
+                object value;
+
+                value = entity.GetType().GetProperty(info.Name).GetValue(entity, null);
+
+                if ((toUpperAtt != null || isUpperCase) && value is string u && !IsObjectNullOrEmpty(value)) {
+                    value = u.ToUpper();
+                }
+                if ((toLowerAtt != null || isLowerCase) && value is string l && !IsObjectNullOrEmpty(value)) {
+                    value = l.ToLower();
+                }
+
+                if (isRequired != null && IsObjectNullOrEmpty(value)) {
+                    IsValidModel = false;
+                    InternalError += string.Concat("Property \"", info.Name, "\" is required" + Environment.NewLine);
+                    continue;
+                }
+
+                if (isPrimary == null || isPrimary.AutoIncrease == false) {
+
+                    sbColumns.AppendLine(string.Concat(info.Name, ","));
+                    AddParameter(paramName, value);
+                }
+                else if (isPrimary.AutoIncrease) {
+
+                    _ifInserted = true;
+                    _inserted = _inserted + info.Name;
+                }
+
+                if (isNoInsertMap != null) { continue; }
+
+                paramName = isFirstTime ? paramName : string.Concat(",", paramName);
+
+                if (isPrimary == null || isPrimary.AutoIncrease == false) {
+                    sbParams.AppendLine(paramName);
+                }
+
+                isFirstTime = false;
+            }
+
+            if (IsValidModel == false) {
+                query = "";
+                throw new ArgumentNullException("Model not valid, check required propertys");
+            }
+
+            string _columns = sbColumns.ToString();
+            string _param = sbParams.ToString();
+
+            if (_param.StartsWith(",")) {
+                _param = _param.Remove(0, 1);
+            }
+            _columns = _columns.EndsWith(",\r\n") ? _columns.Remove(_columns.Length - 3, 1) : string.Empty;
+
+            query = string.Concat("INSERT INTO ", _tname, " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
+
+            //QueryCache[typeof(T)] = query;
+            SqlText = query;
+            return query;
+        }
+
+        protected string updateQuery<T>(T entity) {
+
+            string query = string.Empty;
+            _ifInserted = false;
+            //  if(!QueryCache.TryGetValue(typeof(T), out query)) {
+
+            //		string _other = query;
+            //}
+            Type entityType = typeof(T);
+            PropertyInfo[] properties = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var faceProd = GetInterfaceProperties(entityType);
+
+            StringBuilder sbColumns = new StringBuilder();
+            StringBuilder sbParams = new StringBuilder();
+            StringBuilder sbUpdate = new StringBuilder();
+            StringBuilder sbWhereParams = new StringBuilder();
+
+            string _tname = GetTableName(entity);
+            bool isUpperCase = CheckEntityUpperCase(entity);
+            bool isLowerCase = CheckEntityLowerCase(entity);
+            bool isFirstTime = true;
+
+            foreach (PropertyInfo info in properties) {
+
+                bool isVirtual = typeof(T).GetProperty(info.Name).GetGetMethod().IsVirtual;
+
+                if (isVirtual & !faceProd.Any(x => x.Name == info.Name)) { continue; }
+
+                var isNoUpdate = Attribute.GetCustomAttribute(info, typeof(NoUpdateAttribute)) as NoUpdateAttribute;
+
+                var computed = Attribute.GetCustomAttribute(info, typeof(ComputedAttribute)) as ComputedAttribute;
+                if (computed != null) { continue; }
+
+                var isRequired = Attribute.GetCustomAttribute(info, typeof(RequiredAttribute)) as RequiredAttribute;
+                var isPrimary = Attribute.GetCustomAttribute(info, typeof(PrimaryKeyAttribute)) as PrimaryKeyAttribute;
+                var toUpperAtt = Attribute.GetCustomAttribute(info, typeof(UpperCaseAttribute)) as UpperCaseAttribute;
+                var toLowerAtt = Attribute.GetCustomAttribute(info, typeof(LowerCaseAttribute)) as LowerCaseAttribute;
+
+                string paramName = string.Concat("@", info.Name);
+                object value;
+
+                value = entity.GetType().GetProperty(info.Name).GetValue(entity, null);
+
+                if ((toUpperAtt != null || isUpperCase) && value is string u && !IsObjectNullOrEmpty(value)) {
+                    value = u.ToUpper();
+                }
+                if ((toLowerAtt != null || isLowerCase) && value is string l && !IsObjectNullOrEmpty(value)) {
+                    value = l.ToLower();
+                }
+
+                if (isRequired != null && IsObjectNullOrEmpty(value)) {
+                    IsValidModel = false;
+                    InternalError += string.Concat("Property \"", info.Name, "\" is required" + Environment.NewLine);
+                    continue;
+                }
+
+                if (isPrimary == null || isPrimary.AutoIncrease == false) {
+
+                    if (isNoUpdate == null) {
+                        sbColumns.AppendLine(string.Concat(info.Name, ","));
+                        AddParameter(paramName, value);
+                    }
+                }
+                else if (isPrimary.AutoIncrease) {
+
+                    _ifInserted = true;
+                    // _inserted = _inserted + info.Name;
+                }
+
+                _ifInserted = false;
+                if (isNoUpdate != null && isNoUpdate.NoUpdate) { continue; }
+                if (isFirstTime) {
+
+                    string upColumnName = string.Concat(info.Name, " = ", paramName);
+
+                    if (isPrimary != null) {
+                        AddParameter(paramName, value);
+                        sbWhereParams.AppendLine(upColumnName);
+                    }
+                    else {
+                        sbUpdate.AppendLine(upColumnName);
+                    }
+                }
+                else {
+
+                    string upParamName = string.Concat(",", info.Name, " = ", paramName);
+
+                    if (isPrimary != null) {
+                        AddParameter(paramName, value);
+                        sbWhereParams.AppendLine(upParamName.Replace(",", " AND "));
+                    }
+                    else {
+                        sbUpdate.AppendLine(upParamName);
+                    }
+                }
+
+                isFirstTime = false;
+
+                if (IsValidModel == false) {
+                    query = "";
+                    throw new ArgumentNullException("Model not valid, check required propertys");
+                }
+
+                if (string.IsNullOrWhiteSpace(sbWhereParams.ToString())) {
+                    query = "";
+                    throw new ArgumentNullException("Update primary key property not found");
+                }
+                else {
+                    query = string.Concat("UPDATE ", _tname, " SET ", sbUpdate, " WHERE ", sbWhereParams.ToString());
+
+                    if (query.Contains("SET ,")) {
+                        query = query.Replace("SET ,", "SET ");
+                    }
+                }
+                //QueryCache[typeof(T)] = query;
+            }
             SqlText = query;
             return query;
         }
