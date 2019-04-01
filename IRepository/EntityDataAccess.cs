@@ -1461,7 +1461,7 @@ namespace EntityRepository {
                 throw new ArgumentNullException("Delete key property not found");
             }
             else {
-                CommandText = string.Concat("DELETE FROM dbo.", _tname, " WHERE ", sbParams.ToString(), ";");
+                CommandText = string.Concat("DELETE FROM ", _tname, " WHERE ", sbParams.ToString(), ";");
             }
 
             return ToExecute(UseTransaction);
