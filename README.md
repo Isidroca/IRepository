@@ -21,6 +21,6 @@
       repo.CommandType = EntityDataAccess.ICommandType.Text;
       repo.CommandText = @"select * from Person";
       
-      var data = repo.FirstOrDefault<Person>();
+      var data = await repo.FirstOrDefaultAsync<Person>();
   </pre>
  </div>
