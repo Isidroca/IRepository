@@ -1,20 +1,27 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
+
 namespace EntityRepository.Test {
     [TestClass()]
     public class UnitTest1 {
 
-        string connectionString = @"Server=ICALDERON\SQLEXPRESS;Database=teste;Trusted_Connection=True;";
+        string connectionString = @"Server=LOCALHOST,1433;Database=INTERSERV;User Id=sa; Password=YourNewStrong!Passw0rd2;";
 
         [TestMethod()]
         public void InsertTest() {
 
             EntityDataAccess repo = new EntityDataAccess(connectionString);
-            Person p = new Person();
+            User2 p = new User2();
 
-            p.Id = 1;
-            p.Name = "Isidro";
-            p.lastName = "Calderon Abreu";
-            var value = repo.Update(p);
+            p.Email = "Isidro@gmail.com";
+            p.RoleId = 1;
+            p.Salt = "SSSSSSS";
+            p.SaltedPassword = "XXXXXX";
+            p.Username = "isidroca";
+            p.WDate = DateTime.Now;
+            p.Status = (short)1;
+          
+            short value = (short)repo.Insert(p);
 
             Assert.AreEqual(1, value);
         }
