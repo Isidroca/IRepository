@@ -18,5 +18,17 @@ namespace EntityRepository.Test {
 
             Assert.AreEqual(1, value);
         }
+
+        [TestMethod()]
+        public void SelectFTest()
+        {
+
+            EntityDataAccess repo = new EntityDataAccess(connectionString);
+     
+            repo.CommandText = "select * from person";
+            var value = repo.FirstOrDefault<Person>();
+
+            Assert.AreEqual(1, value);
+        }
     }
 }

@@ -20,7 +20,7 @@ namespace EntityRepository {
         public string CommandText { get; set; }
         public ICommandType CommandType { get; set; }
         public string InternalError = string.Empty;
-        public string SqlText { get; private set; }
+        private protected string SqlText { get; private set; }
         public Exception Exception { get; private set; }
         public int CommandTimeOut = 30;
         protected int _durationTime = 0;
@@ -46,12 +46,6 @@ namespace EntityRepository {
         ConcurrentDictionary<Type, string> QueryCache = new ConcurrentDictionary<Type, string>();
         SqlConnection SQLConnection;
         SqlTransaction SQLTransaction;
-
-        public enum TypeApp : short {
-
-            Web = 1,
-            Desktop = 2
-        }
 
         public enum ICommandType : byte {
 
@@ -739,6 +733,11 @@ namespace EntityRepository {
             return ExecuteReader<T>();
         }
 
+        public T FirstOrDefault<T>() {
+
+            return GetFirstOrDefault<T>();
+        }
+
         public T FirstOrDefault<T>(string SQL) {
 
             return FirstOrDefault();
@@ -1055,6 +1054,69 @@ namespace EntityRepository {
                     }
                 }
             }
+        }
+
+        private T GetFirstOrDefault<T>() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString))
+            {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText))
+            {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(ConnectionString))
+                {
+                    using (SqlCommand comm = new SqlCommand(CommandText, conn))
+                    {
+
+                        comm.CommandType = this.SetCommandType(CommandType);
+                        comm.CommandTimeout = this.CommandTimeOut;
+                        conn.Open();
+
+                        if (SqlParameters.Count > 0)
+                        {
+                            comm.Parameters.AddRange(SqlParameters.ToArray());
+                            SqlParameters.Clear();
+                        }
+
+                        List<T> _list = new List<T>();
+
+                        using (SqlDataReader _dr = comm.ExecuteReader())
+                        {
+
+                            bool isPrimitive = IsPrimitive<T>();
+
+                            if (isPrimitive) {
+
+                                _list = (from IDataRecord r in _dr
+                                         select (T)r[0]
+                                     ).ToList();
+
+                            }
+                            else {
+                                Func<SqlDataReader, T> readRow = GetReader<T>(_dr);
+                                bool c = false;
+
+                                while (_dr.Read() && !c)
+                                {
+                                    _list.Add(readRow(_dr));
+                                    c = true;
+                                    break;
+                                }
+
+                            }
+                        }
+                        return _list.FirstOrDefault();
+                    }
+                }
+            }
+            catch (Exception ex) { Exception = ex; InternalError += ex.Message; return default(T); }
+
         }
 
         /// <summary>
