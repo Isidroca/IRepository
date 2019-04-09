@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Threading.Tasks;
 
 namespace EntityRepository.Test {
     [TestClass()]
@@ -8,11 +9,11 @@ namespace EntityRepository.Test {
         string connectionString = @"Server=LOCALHOST,1433;Database=INTERSERV;User Id=sa; Password=YourNewStrong!Passw0rd2;";
 
         [TestMethod()]
-        public void InsertTest() {
+        public async Task InsertTest() {
 
             EntityDataAccess repo = new EntityDataAccess(connectionString);
             User2 p = new User2();
-
+            p.Id = 2;
             p.Email = "Isidro@gmail.com";
             p.RoleId = 1;
             p.Salt = "SSSSSSS";
@@ -20,8 +21,8 @@ namespace EntityRepository.Test {
             p.Username = "isidroca";
             p.WDate = DateTime.Now;
             p.Status = (short)1;
-          
-            short value = (short)repo.Insert(p);
+            
+            var value = (int) await repo.InsertAsync(p);
 
             Assert.AreEqual(1, value);
         }

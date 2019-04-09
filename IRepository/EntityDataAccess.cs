@@ -40,7 +40,7 @@ namespace EntityRepository {
             }
         }
         protected internal bool _ifInserted = false;
-
+        protected internal Type _idenType;
         private List<SqlParameter> SqlParameters = new List<SqlParameter>();
         ConcurrentDictionary<Type, Delegate> ExpressionCache = new ConcurrentDictionary<Type, Delegate>();
         ConcurrentDictionary<Type, string> QueryCache = new ConcurrentDictionary<Type, string>();
@@ -312,7 +312,7 @@ namespace EntityRepository {
         /// Execute transactions on the database and return the number of rows effected.
         /// </summary>
         /// <returns>int, return the number of rows effected</returns>
-        public int ExecuteNonQuery() {
+        public object ExecuteNonQuery() {
 
             if (string.IsNullOrWhiteSpace(ConnectionString)) {
                 throw new ArgumentNullException("Connection string can not be empty");
@@ -334,10 +334,18 @@ namespace EntityRepository {
                             SqlParameters.Clear();
                         }
                         _strConn.Open();
-                        if (_ifInserted)
-                            return (int)_sqlComand.ExecuteScalar();
-                        else
-                            return _sqlComand.ExecuteNonQuery();
+                        if (_ifInserted) { 
+                            if (_idenType == typeof(short)) {
+                                return (short)_sqlComand.ExecuteScalar();
+                            }
+                            else if (_idenType == typeof(int)) {
+                                return (int)_sqlComand.ExecuteScalar();
+                            }
+                            else if (_idenType == typeof(long)) {
+                                return (long)_sqlComand.ExecuteScalar();
+                            }
+                       }
+                       return _sqlComand.ExecuteNonQuery();
 
                     } catch (SqlException ex) {
                         Exception = ex;
@@ -356,7 +364,7 @@ namespace EntityRepository {
         /// 
         /// </summary>
         /// <returns></returns>
-        public async Task<int> ExecuteNonQueryAsync() {
+        public async Task<object> ExecuteNonQueryAsync() {
 
             if (string.IsNullOrWhiteSpace(ConnectionString)) {
                 throw new ArgumentNullException("Connection string can not be empty");
@@ -379,8 +387,15 @@ namespace EntityRepository {
                         }
                         _strConn.Open();
                         if (_ifInserted)
-                            return Convert.ToInt32(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
-                        else
+                            if (_idenType == typeof(short)) {
+                                return Convert.ToInt16(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
+                            }
+                            else if (_idenType == typeof(int)) {
+                                return Convert.ToInt32(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
+                            }
+                            else if (_idenType == typeof(long)) {
+                                return Convert.ToInt64(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
+                            }
                             return await _sqlComand.ExecuteNonQueryAsync().ConfigureAwait(false);
 
                     } catch (SqlException ex) {
@@ -396,7 +411,7 @@ namespace EntityRepository {
             }
         }
 
-        public int ToExecute(bool UseTransaction) {
+        public object ToExecute(bool UseTransaction) {
 
             if (!IsValidModel) return 0;
 
@@ -413,7 +428,7 @@ namespace EntityRepository {
         /// </summary>
         /// <param name="UseTransaction"></param>
         /// <returns></returns>
-        public async Task<int> ToExecuteAsync(bool UseTransaction) {
+        public async Task<object> ToExecuteAsync(bool UseTransaction) {
 
             if (!IsValidModel) return 0;
 
@@ -1455,7 +1470,7 @@ namespace EntityRepository {
         /// <param name="Entity"></param>
         /// <param name="UseTransaction"></param>
         /// <returns></returns>
-        public int Insert<T>(T Entity, bool UseTransaction = false) where T : new() {
+        public object Insert<T>(T Entity, bool UseTransaction = false) {
 
             if (CommandType == 0 || CommandType == ICommandType.Text) {
 
@@ -1471,13 +1486,45 @@ namespace EntityRepository {
         /// <param name="Entity"></param>
         /// <param name="UseTransaction"></param>
         /// <returns></returns>
+        public async Task<object> InsertAsync<T>(T Entity, bool UseTransaction = false) {
+
+            if (CommandType == 0 || CommandType == ICommandType.Text) {
+
+                CommandText = insertQuery(Entity);
+            }
+            return await ToExecuteAsync(UseTransaction);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Entity"></param>
+        /// <param name="UseTransaction"></param>
+        /// <returns></returns>
         public int Update<T>(T Entity, bool UseTransaction = false) {
 
             if (CommandType == 0 || CommandType == ICommandType.Text) {
 
                 CommandText = updateQuery(Entity);
             }
-            return ToExecute(UseTransaction);
+            return (int)ToExecute(UseTransaction);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Entity"></param>
+        /// <param name="UseTransaction"></param>
+        /// <returns></returns>
+        public async Task<int> UpdateAsync<T>(T Entity, bool UseTransaction = false) {
+
+            if (CommandType == 0 || CommandType == ICommandType.Text) {
+
+                CommandText = updateQuery(Entity);
+            }
+            return Convert.ToInt32(await ToExecuteAsync(UseTransaction));
         }
 
         /// <summary>
@@ -1526,7 +1573,7 @@ namespace EntityRepository {
                 CommandText = string.Concat("DELETE FROM ", _tname, " WHERE ", sbParams.ToString(), ";");
             }
 
-            return ToExecute(UseTransaction);
+            return (int)ToExecute(UseTransaction);
         }
 
         private List<PropertyInfo> GetInterfaceProperties(Type type) {
@@ -1596,6 +1643,7 @@ namespace EntityRepository {
                 else if (isPrimary.AutoIncrease) {
 
                     _ifInserted = true;
+                    _idenType = info.PropertyType;
                     _inserted = _inserted + info.Name;
                 }
 
