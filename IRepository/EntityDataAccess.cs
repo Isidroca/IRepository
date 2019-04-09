@@ -20,7 +20,7 @@ namespace EntityRepository {
         public string CommandText { get; set; }
         public ICommandType CommandType { get; set; }
         public string InternalError = string.Empty;
-        public string SqlText { get; private set; }
+        private protected string SqlText { get; private set; }
         public Exception Exception { get; private set; }
         public int CommandTimeOut = 30;
         protected int _durationTime = 0;
@@ -39,19 +39,13 @@ namespace EntityRepository {
                 return _infoMessage;
             }
         }
-        protected bool _ifInserted = false;
-
+        protected internal bool _ifInserted = false;
+        protected internal Type _idenType;
         private List<SqlParameter> SqlParameters = new List<SqlParameter>();
         ConcurrentDictionary<Type, Delegate> ExpressionCache = new ConcurrentDictionary<Type, Delegate>();
         ConcurrentDictionary<Type, string> QueryCache = new ConcurrentDictionary<Type, string>();
         SqlConnection SQLConnection;
         SqlTransaction SQLTransaction;
-
-        public enum TypeApp : short {
-
-            Web = 1,
-            Desktop = 2
-        }
 
         public enum ICommandType : byte {
 
@@ -177,11 +171,11 @@ namespace EntityRepository {
                         _da.Fill(_dt);
                     } catch (SqlException ex) {
                         Exception = ex;
-                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        InternalError += string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return null;
                     } catch (Exception ex) {
                         Exception = ex;
-                        InternalError = ex.Message.ToString();
+                        InternalError += ex.Message.ToString();
                     }
                 }
             }
@@ -221,11 +215,11 @@ namespace EntityRepository {
                         _da.Fill(_dt);
                     } catch (SqlException ex) {
                         Exception = ex;
-                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        InternalError += string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return null;
                     } catch (Exception ex) {
                         Exception = ex;
-                        InternalError = ex.Message.ToString();
+                        InternalError += ex.Message.ToString();
                     }
                 }
             }
@@ -262,11 +256,11 @@ namespace EntityRepository {
 
                     } catch (SqlException ex) {
                         Exception = ex;
-                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        InternalError += string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return 0;
                     } catch (Exception ex) {
                         Exception = ex;
-                        InternalError = ex.Message.ToString();
+                        InternalError += ex.Message.ToString();
                         return 0;
                     }
                 }
@@ -303,11 +297,11 @@ namespace EntityRepository {
 
                     } catch (SqlException ex) {
                         Exception = ex;
-                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        InternalError += string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return 0;
                     } catch (Exception ex) {
                         Exception = ex;
-                        InternalError = ex.Message.ToString();
+                        InternalError += ex.Message.ToString();
                         return 0;
                     }
                 }
@@ -318,7 +312,7 @@ namespace EntityRepository {
         /// Execute transactions on the database and return the number of rows effected.
         /// </summary>
         /// <returns>int, return the number of rows effected</returns>
-        public int ExecuteNonQuery() {
+        public object ExecuteNonQuery() {
 
             if (string.IsNullOrWhiteSpace(ConnectionString)) {
                 throw new ArgumentNullException("Connection string can not be empty");
@@ -340,18 +334,26 @@ namespace EntityRepository {
                             SqlParameters.Clear();
                         }
                         _strConn.Open();
-                        if (_ifInserted)
-                            return (int)_sqlComand.ExecuteScalar();
-                        else
-                            return _sqlComand.ExecuteNonQuery();
+                        if (_ifInserted) { 
+                            if (_idenType == typeof(short)) {
+                                return (short)_sqlComand.ExecuteScalar();
+                            }
+                            else if (_idenType == typeof(int)) {
+                                return (int)_sqlComand.ExecuteScalar();
+                            }
+                            else if (_idenType == typeof(long)) {
+                                return (long)_sqlComand.ExecuteScalar();
+                            }
+                       }
+                       return _sqlComand.ExecuteNonQuery();
 
                     } catch (SqlException ex) {
                         Exception = ex;
-                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        InternalError += string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return 0;
                     } catch (Exception ex) {
                         Exception = ex;
-                        InternalError = ex.Message.ToString();
+                        InternalError += ex.Message.ToString();
                         return 0;
                     }
                 }
@@ -362,7 +364,7 @@ namespace EntityRepository {
         /// 
         /// </summary>
         /// <returns></returns>
-        public async Task<int> ExecuteNonQueryAsync() {
+        public async Task<object> ExecuteNonQueryAsync() {
 
             if (string.IsNullOrWhiteSpace(ConnectionString)) {
                 throw new ArgumentNullException("Connection string can not be empty");
@@ -385,24 +387,33 @@ namespace EntityRepository {
                         }
                         _strConn.Open();
                         if (_ifInserted)
-                            return Convert.ToInt32(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
-                        else
+                            if (_idenType == typeof(short)) {
+                                return Convert.ToInt16(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
+                            }
+                            else if (_idenType == typeof(int)) {
+                                return Convert.ToInt32(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
+                            }
+                            else if (_idenType == typeof(long)) {
+                                return Convert.ToInt64(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
+                            }
                             return await _sqlComand.ExecuteNonQueryAsync().ConfigureAwait(false);
 
                     } catch (SqlException ex) {
                         Exception = ex;
-                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        InternalError += string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return 0;
                     } catch (Exception ex) {
                         Exception = ex;
-                        InternalError = ex.Message.ToString();
+                        InternalError += ex.Message.ToString();
                         return 0;
                     }
                 }
             }
         }
 
-        public int ToExecute(bool UseTransaction) {
+        public object ToExecute(bool UseTransaction) {
+
+            if (!IsValidModel) return 0;
 
             if (UseTransaction) {
                 return ExecuteNonQuery(true);
@@ -417,7 +428,9 @@ namespace EntityRepository {
         /// </summary>
         /// <param name="UseTransaction"></param>
         /// <returns></returns>
-        public async Task<int> ToExecuteAsync(bool UseTransaction) {
+        public async Task<object> ToExecuteAsync(bool UseTransaction) {
+
+            if (!IsValidModel) return 0;
 
             if (UseTransaction) {
                 return await ExecuteNonQueryAsync(true);
@@ -472,12 +485,12 @@ namespace EntityRepository {
             } catch (SqlException ex) {
                 Exception = ex;
                 DisponseConn();
-                InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                InternalError += string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                 return 0;
             } catch (Exception ex) {
                 Exception = ex;
                 DisponseConn();
-                InternalError = ex.Message.ToString();
+                InternalError += ex.Message.ToString();
                 return 0;
             }
         }
@@ -527,12 +540,12 @@ namespace EntityRepository {
             } catch (SqlException ex) {
                 Exception = ex;
                 DisponseConn();
-                InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                InternalError += string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                 return 0;
             } catch (Exception ex) {
                 Exception = ex;
                 DisponseConn();
-                InternalError = ex.Message.ToString();
+                InternalError += ex.Message.ToString();
                 return 0;
             }
         }
@@ -587,11 +600,11 @@ namespace EntityRepository {
                         return _sqlComand.Parameters[ReturnVariableName].Value;
                     } catch (SqlException ex) {
                         Exception = ex;
-                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        InternalError += string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return 0;
                     } catch (Exception ex) {
                         Exception = ex;
-                        InternalError = ex.Message.ToString();
+                        InternalError += ex.Message.ToString();
                         return 0;
                     }
                 }
@@ -637,11 +650,11 @@ namespace EntityRepository {
                         return _sqlComand.Parameters[ReturnVariableName].Value;
                     } catch (SqlException ex) {
                         Exception = ex;
-                        InternalError = string.Format("Error ({0}): {1}", ex.Number, ex.Message);
+                        InternalError += string.Format("Error ({0}): {1}", ex.Number, ex.Message);
                         return 0;
                     } catch (Exception ex) {
                         Exception = ex;
-                        InternalError = ex.Message.ToString();
+                        InternalError += ex.Message.ToString();
                         return 0;
                     }
                 }
@@ -733,6 +746,11 @@ namespace EntityRepository {
 
             this.DymanicParams(Parameters);
             return ExecuteReader<T>();
+        }
+
+        public T FirstOrDefault<T>() {
+
+            return GetFirstOrDefault<T>();
         }
 
         public T FirstOrDefault<T>(string SQL) {
@@ -947,7 +965,7 @@ namespace EntityRepository {
                         }
                     }
                 }
-            } catch (Exception ex) { Exception = ex; InternalError = ex.Message; }
+            } catch (Exception ex) { Exception = ex; InternalError += ex.Message; }
             return _list;
         }
 
@@ -1004,7 +1022,7 @@ namespace EntityRepository {
                         }
                     }
                 }
-            } catch (Exception ex) { Exception = ex; InternalError = ex.Message; }
+            } catch (Exception ex) { Exception = ex; InternalError += ex.Message; }
             return _list;
         }
 
@@ -1051,6 +1069,69 @@ namespace EntityRepository {
                     }
                 }
             }
+        }
+
+        private T GetFirstOrDefault<T>() {
+
+            if (string.IsNullOrWhiteSpace(ConnectionString))
+            {
+                throw new ArgumentNullException("Connection string can not be empty");
+            }
+
+            if (string.IsNullOrWhiteSpace(CommandText))
+            {
+                throw new ArgumentNullException("CommandText can not be blank");
+            }
+            try
+            {
+                using (SqlConnection conn = new SqlConnection(ConnectionString))
+                {
+                    using (SqlCommand comm = new SqlCommand(CommandText, conn))
+                    {
+
+                        comm.CommandType = this.SetCommandType(CommandType);
+                        comm.CommandTimeout = this.CommandTimeOut;
+                        conn.Open();
+
+                        if (SqlParameters.Count > 0)
+                        {
+                            comm.Parameters.AddRange(SqlParameters.ToArray());
+                            SqlParameters.Clear();
+                        }
+
+                        List<T> _list = new List<T>();
+
+                        using (SqlDataReader _dr = comm.ExecuteReader())
+                        {
+
+                            bool isPrimitive = IsPrimitive<T>();
+
+                            if (isPrimitive) {
+
+                                _list = (from IDataRecord r in _dr
+                                         select (T)r[0]
+                                     ).ToList();
+
+                            }
+                            else {
+                                Func<SqlDataReader, T> readRow = GetReader<T>(_dr);
+                                bool c = false;
+
+                                while (_dr.Read() && !c)
+                                {
+                                    _list.Add(readRow(_dr));
+                                    c = true;
+                                    break;
+                                }
+
+                            }
+                        }
+                        return _list.FirstOrDefault();
+                    }
+                }
+            }
+            catch (Exception ex) { Exception = ex; InternalError += ex.Message; return default(T); }
+
         }
 
         /// <summary>
@@ -1108,7 +1189,7 @@ namespace EntityRepository {
                         return _list.FirstOrDefault();
                     }
                 }
-            } catch (Exception ex) { Exception = ex; InternalError = ex.Message; return default(T); }
+            } catch (Exception ex) { Exception = ex; InternalError += ex.Message; return default(T); }
 
         }
 
@@ -1153,7 +1234,7 @@ namespace EntityRepository {
                         return obj;
                     }
                 }
-            } catch (Exception ex) { Exception = ex; InternalError = ex.Message; return null; }
+            } catch (Exception ex) { Exception = ex; InternalError += ex.Message; return null; }
         }
 
         /// <summary>
@@ -1389,7 +1470,7 @@ namespace EntityRepository {
         /// <param name="Entity"></param>
         /// <param name="UseTransaction"></param>
         /// <returns></returns>
-        public int Insert<T>(T Entity, bool UseTransaction = false) where T : new() {
+        public object Insert<T>(T Entity, bool UseTransaction = false) {
 
             if (CommandType == 0 || CommandType == ICommandType.Text) {
 
@@ -1405,13 +1486,45 @@ namespace EntityRepository {
         /// <param name="Entity"></param>
         /// <param name="UseTransaction"></param>
         /// <returns></returns>
-        public int Update<T>(T Entity, bool UseTransaction = false) where T : new() {
+        public async Task<object> InsertAsync<T>(T Entity, bool UseTransaction = false) {
 
             if (CommandType == 0 || CommandType == ICommandType.Text) {
 
-                CommandText = SetCrudColumns(Entity, true);
+                CommandText = insertQuery(Entity);
             }
-            return ToExecute(UseTransaction);
+            return await ToExecuteAsync(UseTransaction);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Entity"></param>
+        /// <param name="UseTransaction"></param>
+        /// <returns></returns>
+        public int Update<T>(T Entity, bool UseTransaction = false) {
+
+            if (CommandType == 0 || CommandType == ICommandType.Text) {
+
+                CommandText = updateQuery(Entity);
+            }
+            return (int)ToExecute(UseTransaction);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Entity"></param>
+        /// <param name="UseTransaction"></param>
+        /// <returns></returns>
+        public async Task<int> UpdateAsync<T>(T Entity, bool UseTransaction = false) {
+
+            if (CommandType == 0 || CommandType == ICommandType.Text) {
+
+                CommandText = updateQuery(Entity);
+            }
+            return Convert.ToInt32(await ToExecuteAsync(UseTransaction));
         }
 
         /// <summary>
@@ -1457,172 +1570,15 @@ namespace EntityRepository {
                 throw new ArgumentNullException("Delete key property not found");
             }
             else {
-                CommandText = string.Concat("DELETE FROM dbo.", _tname, " WHERE ", sbParams.ToString(), ";");
+                CommandText = string.Concat("DELETE FROM [", _tname, "] WHERE ", sbParams.ToString(), ";");
             }
 
-            return ToExecute(UseTransaction);
+            return (int)ToExecute(UseTransaction);
         }
 
         private List<PropertyInfo> GetInterfaceProperties(Type type) {
 
             return type.GetInterfaces().SelectMany(i => i.GetProperties(BindingFlags.Public | BindingFlags.Instance)).ToList();
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="entity"></param>
-        /// <param name="IsUpdate"></param>
-        /// <returns></returns>   
-        private string SetCrudColumns<T>(T entity, bool IsUpdate) where T : new() {
-
-            string query = string.Empty;
-            _ifInserted = false;
-            //  if(!QueryCache.TryGetValue(typeof(T), out query)) {
-
-            //		string _other = query;
-            //}
-            Type entityType = typeof(T);
-            PropertyInfo[] properties = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            var faceProd = GetInterfaceProperties(entityType);
-
-            StringBuilder sbColumns = new StringBuilder();
-            StringBuilder sbParams = new StringBuilder();
-            StringBuilder sbUpdate = new StringBuilder();
-            StringBuilder sbWhereParams = new StringBuilder();
-
-            string _tname = GetTableName(entity);
-            bool isUpperCase = CheckEntityUpperCase(entity);
-            bool isLowerCase = CheckEntityLowerCase(entity);
-            bool isFirstTime = true;
-            string _inserted = " OUTPUT INSERTED.";
-
-            foreach (PropertyInfo info in properties) {
-
-                bool isVirtual = typeof(T).GetProperty(info.Name).GetGetMethod().IsVirtual;
-
-                if (isVirtual & !faceProd.Any(x => x.Name == info.Name)) { continue; }
-
-                var isNoMap = Attribute.GetCustomAttribute(info, typeof(NotMappedAttribute)) as NotMappedAttribute;
-                if (isNoMap != null) { continue; }
-
-                var isNoInsertMap = Attribute.GetCustomAttribute(info, typeof(NoInsertAttribute)) as NoInsertAttribute;
-                if (isNoInsertMap != null && isNoInsertMap.NoInsert) { continue; }
-
-                var isNoUpdate = Attribute.GetCustomAttribute(info, typeof(NoUpdateAttribute)) as NoUpdateAttribute;
-                // if (isNoUpdate != null && isNoUpdate.NoUpdate) { continue; }
-
-                var computed = Attribute.GetCustomAttribute(info, typeof(ComputedAttribute)) as ComputedAttribute;
-                if (computed != null) { continue; }
-
-                var isRequired = Attribute.GetCustomAttribute(info, typeof(RequiredAttribute)) as RequiredAttribute;
-                var isPrimary = Attribute.GetCustomAttribute(info, typeof(PrimaryKeyAttribute)) as PrimaryKeyAttribute;
-                var toUpperAtt = Attribute.GetCustomAttribute(info, typeof(UpperCaseAttribute)) as UpperCaseAttribute;
-                var toLowerAtt = Attribute.GetCustomAttribute(info, typeof(LowerCaseAttribute)) as LowerCaseAttribute;
-
-                string paramName = string.Concat("@", info.Name);
-                object value;
-
-                value = entity.GetType().GetProperty(info.Name).GetValue(entity, null);
-
-                if ((toUpperAtt != null || isUpperCase) && value is string u && !IsObjectNullOrEmpty(value)) {
-                    value = u.ToUpper();
-                }
-                if ((toLowerAtt != null || isLowerCase) && value is string l && !IsObjectNullOrEmpty(value)) {
-                    value = l.ToLower();
-                }
-
-                if (isRequired != null && IsObjectNullOrEmpty(value)) {
-                    IsValidModel = false;
-                    InternalError += string.Concat("Property \"", info.Name, "\" is required" + Environment.NewLine);
-                    continue;
-                }
-
-                if (isPrimary == null || isPrimary.AutoIncrease == false) {
-
-                    if (isNoUpdate == null & IsUpdate)
-                    {
-                        sbColumns.AppendLine(string.Concat(info.Name, ","));
-                        AddParameter(paramName, value);
-                    }
-                }
-                else if (isPrimary.AutoIncrease) {
-
-                    _ifInserted = true;
-                    _inserted = _inserted + info.Name;
-                }
-
-                if (IsUpdate) {
-
-                    _ifInserted = false;
-                    if (isNoUpdate != null && isNoUpdate.NoUpdate) { continue; }
-                    if (isFirstTime) {
-
-                        string upColumnName = string.Concat(info.Name, " = ", paramName);
-
-                        if (isPrimary != null) {
-                            AddParameter(paramName, value);
-                            sbWhereParams.AppendLine(upColumnName);
-                        }
-                        else {
-                            sbUpdate.AppendLine(upColumnName);
-                        }
-                    }
-                    else {
-
-                        string upParamName = string.Concat(",", info.Name, " = ", paramName);
-
-                        if (isPrimary != null) {
-                            AddParameter(paramName, value);
-                            sbWhereParams.AppendLine(upParamName.Replace(",", " AND "));
-                        }
-                        else {
-                            sbUpdate.AppendLine(upParamName);
-                        }
-                    }
-                    isFirstTime = false;
-                }
-                else {
-                    if (isNoInsertMap != null) { continue; }
-                    paramName = isFirstTime ? paramName : string.Concat(",", paramName);
-
-                    if (isPrimary == null || isPrimary.AutoIncrease == false) {
-                        sbParams.AppendLine(paramName);
-                    }
-                }
-                isFirstTime = false;
-            }
-
-            if (IsValidModel == false) {
-                query = "";
-                throw new ArgumentNullException("Model not valid, check required propertys");
-            }
-
-            if (IsUpdate) {
-                if (string.IsNullOrWhiteSpace(sbWhereParams.ToString())) {
-                    query = "";
-                    throw new ArgumentNullException("Update primary key property not found");
-                }
-                else {
-                    query = string.Concat("UPDATE ", _tname, " SET ", sbUpdate, " WHERE ", sbWhereParams.ToString());
-                    if (query.Contains("SET ,")) { query = query.Replace("SET ,", "SET "); }
-                }
-            }
-            else {
-
-                string _columns = sbColumns.ToString();
-                string _param = sbParams.ToString();
-                if (_param.StartsWith(",")) {
-                    _param = _param.Remove(0, 1);
-                }
-                _columns = _columns.EndsWith(",\r\n") ? _columns.Remove(_columns.Length - 3, 1) : string.Empty;
-
-                query = string.Concat("INSERT INTO ", _tname, " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
-            }
-            //QueryCache[typeof(T)] = query;
-            SqlText = query;
-            return query;
         }
 
         protected string insertQuery<T>(T entity) {
@@ -1675,7 +1631,7 @@ namespace EntityRepository {
 
                 if (isRequired != null && IsObjectNullOrEmpty(value)) {
                     IsValidModel = false;
-                    InternalError += string.Concat("Property \"", info.Name, "\" is required" + Environment.NewLine);
+                    InternalError += string.Concat("Property ", info.Name, " is required" + Environment.NewLine);
                     continue;
                 }
 
@@ -1687,6 +1643,7 @@ namespace EntityRepository {
                 else if (isPrimary.AutoIncrease) {
 
                     _ifInserted = true;
+                    _idenType = info.PropertyType;
                     _inserted = _inserted + info.Name;
                 }
 
@@ -1701,10 +1658,7 @@ namespace EntityRepository {
                 isFirstTime = false;
             }
 
-            if (IsValidModel == false) {
-                query = "";
-                throw new ArgumentNullException("Model not valid, check required propertys");
-            }
+            if (!IsValidModel) { InternalError += "Please check all properties marked as required" + Environment.NewLine; }
 
             string _columns = sbColumns.ToString();
             string _param = sbParams.ToString();
@@ -1714,7 +1668,7 @@ namespace EntityRepository {
             }
             _columns = _columns.EndsWith(",\r\n") ? _columns.Remove(_columns.Length - 3, 1) : string.Empty;
 
-            query = string.Concat("INSERT INTO ", _tname, " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
+            query = string.Concat("INSERT INTO ", "[" + _tname,  "]" + " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
 
             //QueryCache[typeof(T)] = query;
             SqlText = query;
@@ -1724,24 +1678,17 @@ namespace EntityRepository {
         protected string updateQuery<T>(T entity) {
 
             string query = string.Empty;
-            _ifInserted = false;
-            //  if(!QueryCache.TryGetValue(typeof(T), out query)) {
-
-            //		string _other = query;
-            //}
+            bool isFirstTimeColumn = true, isFirstTimeWhere = true;
             Type entityType = typeof(T);
             PropertyInfo[] properties = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
             var faceProd = GetInterfaceProperties(entityType);
 
             StringBuilder sbColumns = new StringBuilder();
-            StringBuilder sbParams = new StringBuilder();
-            StringBuilder sbUpdate = new StringBuilder();
             StringBuilder sbWhereParams = new StringBuilder();
 
             string _tname = GetTableName(entity);
             bool isUpperCase = CheckEntityUpperCase(entity);
             bool isLowerCase = CheckEntityLowerCase(entity);
-            bool isFirstTime = true;
 
             foreach (PropertyInfo info in properties) {
 
@@ -1750,9 +1697,7 @@ namespace EntityRepository {
                 if (isVirtual & !faceProd.Any(x => x.Name == info.Name)) { continue; }
 
                 var isNoUpdate = Attribute.GetCustomAttribute(info, typeof(NoUpdateAttribute)) as NoUpdateAttribute;
-
-                var computed = Attribute.GetCustomAttribute(info, typeof(ComputedAttribute)) as ComputedAttribute;
-                if (computed != null) { continue; }
+                if (isNoUpdate != null && isNoUpdate.NoUpdate) { continue; }
 
                 var isRequired = Attribute.GetCustomAttribute(info, typeof(RequiredAttribute)) as RequiredAttribute;
                 var isPrimary = Attribute.GetCustomAttribute(info, typeof(PrimaryKeyAttribute)) as PrimaryKeyAttribute;
@@ -1767,76 +1712,38 @@ namespace EntityRepository {
                 if ((toUpperAtt != null || isUpperCase) && value is string u && !IsObjectNullOrEmpty(value)) {
                     value = u.ToUpper();
                 }
+
                 if ((toLowerAtt != null || isLowerCase) && value is string l && !IsObjectNullOrEmpty(value)) {
                     value = l.ToLower();
                 }
 
                 if (isRequired != null && IsObjectNullOrEmpty(value)) {
                     IsValidModel = false;
-                    InternalError += string.Concat("Property \"", info.Name, "\" is required" + Environment.NewLine);
-                    continue;
+                    InternalError += string.Concat("Property ", info.Name, " is required" + Environment.NewLine);
                 }
 
-                if (isPrimary == null || isPrimary.AutoIncrease == false) {
-
-                    if (isNoUpdate == null) {
-                        sbColumns.AppendLine(string.Concat(info.Name, ","));
-                        AddParameter(paramName, value);
-                    }
+                if (isPrimary is null) {
+                    string upColumnName = string.Concat(isFirstTimeColumn ? string.Empty : ",", info.Name, " = ", paramName);
+                    sbColumns.AppendLine(upColumnName);
+                    AddParameter(paramName, value);
+                    isFirstTimeColumn = false;
+                } else {
+                    string upParamName = string.Concat(isFirstTimeWhere ? string.Empty : " AND ", info.Name, " = ", paramName);
+                    sbWhereParams.AppendLine(upParamName);
+                    AddParameter(paramName, value);
+                    isFirstTimeWhere = false;
                 }
-                else if (isPrimary.AutoIncrease) {
-
-                    _ifInserted = true;
-                    // _inserted = _inserted + info.Name;
-                }
-
-                _ifInserted = false;
-                if (isNoUpdate != null && isNoUpdate.NoUpdate) { continue; }
-                if (isFirstTime) {
-
-                    string upColumnName = string.Concat(info.Name, " = ", paramName);
-
-                    if (isPrimary != null) {
-                        AddParameter(paramName, value);
-                        sbWhereParams.AppendLine(upColumnName);
-                    }
-                    else {
-                        sbUpdate.AppendLine(upColumnName);
-                    }
-                }
-                else {
-
-                    string upParamName = string.Concat(",", info.Name, " = ", paramName);
-
-                    if (isPrimary != null) {
-                        AddParameter(paramName, value);
-                        sbWhereParams.AppendLine(upParamName.Replace(",", " AND "));
-                    }
-                    else {
-                        sbUpdate.AppendLine(upParamName);
-                    }
-                }
-
-                isFirstTime = false;
-
-                if (IsValidModel == false) {
-                    query = "";
-                    throw new ArgumentNullException("Model not valid, check required propertys");
-                }
-
-                if (string.IsNullOrWhiteSpace(sbWhereParams.ToString())) {
-                    query = "";
-                    throw new ArgumentNullException("Update primary key property not found");
-                }
-                else {
-                    query = string.Concat("UPDATE ", _tname, " SET ", sbUpdate, " WHERE ", sbWhereParams.ToString());
-
-                    if (query.Contains("SET ,")) {
-                        query = query.Replace("SET ,", "SET ");
-                    }
-                }
-                //QueryCache[typeof(T)] = query;
             }
+
+            if (string.IsNullOrWhiteSpace(sbWhereParams.ToString())) {
+                query = "";
+                throw new ArgumentNullException("Update primary key property not found");
+            }
+ 
+            query = string.Concat("UPDATE ","[" + _tname, "] SET ", sbColumns, " WHERE ", sbWhereParams.ToString());
+            
+            if (!IsValidModel) { InternalError += "Please check all properties marked as required" + Environment.NewLine; }
+
             SqlText = query;
             return query;
         }
