@@ -1523,7 +1523,7 @@ namespace EntityRepository {
                 throw new ArgumentNullException("Delete key property not found");
             }
             else {
-                CommandText = string.Concat("DELETE FROM ", _tname, " WHERE ", sbParams.ToString(), ";");
+                CommandText = string.Concat("DELETE FROM [", _tname, "] WHERE ", sbParams.ToString(), ";");
             }
 
             return ToExecute(UseTransaction);
@@ -1620,7 +1620,7 @@ namespace EntityRepository {
             }
             _columns = _columns.EndsWith(",\r\n") ? _columns.Remove(_columns.Length - 3, 1) : string.Empty;
 
-            query = string.Concat("INSERT INTO ", _tname, " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
+            query = string.Concat("INSERT INTO ", "[" + _tname,  "]" + " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
 
             //QueryCache[typeof(T)] = query;
             SqlText = query;
@@ -1692,7 +1692,7 @@ namespace EntityRepository {
                 throw new ArgumentNullException("Update primary key property not found");
             }
  
-            query = string.Concat("UPDATE ", _tname, " SET ", sbColumns, " WHERE ", sbWhereParams.ToString());
+            query = string.Concat("UPDATE ","[" + _tname, "] SET ", sbColumns, " WHERE ", sbWhereParams.ToString());
             
             if (!IsValidModel) { InternalError += "Please check all properties marked as required" + Environment.NewLine; }
 
