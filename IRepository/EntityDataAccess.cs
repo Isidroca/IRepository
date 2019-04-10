@@ -11,6 +11,8 @@ using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Runtime.InteropServices;
+using System.Globalization;
 
 namespace EntityRepository {
 
@@ -65,6 +67,7 @@ namespace EntityRepository {
         public EntityDataAccess(string ConnectionString) {
 
             this.ConnectionString = ConnectionString;
+       
         }
 
         /// <summary>
@@ -1663,10 +1666,16 @@ namespace EntityRepository {
             string _columns = sbColumns.ToString();
             string _param = sbParams.ToString();
 
-            if (_param.StartsWith(",")) {
-                _param = _param.Remove(0, 1);
-            }
-            _columns = _columns.EndsWith(",\r\n") ? _columns.Remove(_columns.Length - 3, 1) : string.Empty;
+            _columns = CleanEndLine(_columns);
+            _param = CleanEndLine(_param);
+
+            _columns = _columns.StartsWith(",", StringComparison.InvariantCultureIgnoreCase) ?_columns.Substring(1) : _columns;
+
+            _columns = _columns.EndsWith(",", StringComparison.InvariantCultureIgnoreCase) ? _columns.Substring(0, _columns.Length - 1) : _columns;
+
+            _param = _param.StartsWith(",", StringComparison.InvariantCultureIgnoreCase) ? _param.Substring(1) : _param;
+
+            _param = _param.EndsWith(",", StringComparison.InvariantCultureIgnoreCase) ? _param.Substring(0, _param.Length - 1) : _param;
 
             query = string.Concat("INSERT INTO ", "[" + _tname,  "]" + " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
 
@@ -1800,6 +1809,28 @@ namespace EntityRepository {
 
             public List<T> Pro1 { get; set; }
             public List<T2> Pro2 { get; set; }
+        }
+
+        private string CleanEndLine(string text) {
+            text = text.Replace("\r\n", "").Replace("\r", "").Replace("\n", "");
+            return text;
+        }
+
+        private OSPlatform GetRunningOS() {
+
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                return OSPlatform.Windows;
+            }else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                return OSPlatform.OSX;
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
+                return OSPlatform.Linux;
+            }
+            else {
+                return OSPlatform.Windows;
+            }
         }
     }
 
