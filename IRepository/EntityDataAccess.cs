@@ -683,6 +683,34 @@ namespace EntityRepository {
         /// 
         /// </summary>
         /// <typeparam name="T"></typeparam>
+        /// <param name="Key"></param>
+        /// <param name="Values"></param>
+        public void AddParameter<T>(string Key, IEnumerable<T> Values) {
+
+            var parameterNames = new List<string>();
+            var paramNbr = 0;
+
+            foreach (var param in Values) {
+
+                SqlParameter lp = new SqlParameter();
+
+                var paramName = string.Format(Key.StartsWith("@") ? "{0}{1}" : "@{0}{1}", Key, paramNbr++);
+                parameterNames.Add(paramName);
+
+                lp.ParameterName = paramName;
+                lp.Value = param;
+                if (!SqlParameters.Where(x => x.ParameterName == paramName).Any()) {
+                    SqlParameters.Add(lp);
+                }
+            }
+            
+            CommandText = CommandText?.Replace(Key, string.Join(",", parameterNames));
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
         /// <param name="SQL"></param>
         /// <param name="Parameters"></param>
         /// <returns></returns>
@@ -1407,7 +1435,7 @@ namespace EntityRepository {
 
                         if (_dr.Read()) {
 
-                            _AList = this.MapEntityCollection<A>(_dr, false);
+                            _AList = this.MapEntityCollection<A>(_dr);
                         }
                         if (_dr.NextResult()) {
 
