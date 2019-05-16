@@ -690,6 +690,11 @@ namespace EntityRepository {
             var parameterNames = new List<string>();
             var paramNbr = 0;
 
+            if (Values is null) {
+                AddParameter(Key, null);
+                return; 
+            }
+
             foreach (var param in Values) {
 
                 SqlParameter lp = new SqlParameter();
