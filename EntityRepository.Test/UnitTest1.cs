@@ -6,7 +6,8 @@ namespace EntityRepository.Test {
     [TestClass()]
     public class UnitTest1 {
 
-        string connectionString = @"Server=LOCALHOST,1433;Database=INTERSERV;User Id=sa; Password=YourNewStrong!Passw0rd2;";
+        //string connectionString = @"Server=LOCALHOST,1433;Database=INTERSERV;User Id=sa; Password=YourNewStrong!Passw0rd2;";
+        string connectionString = @"Server=ICALDERON\SQLEXPRESS;Database=teste;Trusted_Connection=True;";
 
         [TestMethod()]
         public async Task InsertTest() {
@@ -38,5 +39,19 @@ namespace EntityRepository.Test {
 
             Assert.AreEqual(1, value);
         }
+
+        [TestMethod()]
+        public void SelectMultipleParam() {
+
+            EntityDataAccess repo = new EntityDataAccess(connectionString);
+
+            repo.CommandText = "select * from person where id IN (@ids)";
+            repo.AddParameter("@ids", new int[] { 1, 3 });
+
+            var value = repo.ExecuteReader<Person>();
+
+            Assert.AreEqual(1, value);
+        }
+
     }
 }
