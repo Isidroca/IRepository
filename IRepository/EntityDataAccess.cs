@@ -664,6 +664,40 @@ namespace EntityRepository {
             }
         }
 
+        private bool CheckObjectIsArray(object Value) {
+
+            bool isArray = false;
+
+            Type[] types = {
+                             typeof(byte[]),
+                             typeof(short[]),
+                             typeof(int[]),
+                             typeof(string[]),
+                             typeof(char[]),
+                             typeof(ArrayList),
+                             typeof(Array),
+                             typeof(List<byte>),
+                             typeof(List<short>),
+                             typeof(List<int>),
+                             typeof(List<string>),
+                             typeof(List<char>),
+                             typeof(IEnumerable<byte>),
+                             typeof(IEnumerable<short>),
+                             typeof(IEnumerable<int>),
+                             typeof(IEnumerable<string>),
+                             typeof(IEnumerable<char>)
+                           };
+            
+            foreach (var t in types) {
+                if (!(Value is null)) {
+                    if (Value.GetType() == t) {
+                        isArray = true;
+                    }
+                }
+            }
+            return isArray;
+        }
+
         /// <summary>
         /// The parameters of the Transact-SQL statement or stored procedure. The default is an empty collection.
         /// </summary>
@@ -671,11 +705,17 @@ namespace EntityRepository {
         /// <param name="Value">Set Parameters value</param>
         public void AddParameter(string Key, object Value) {
 
-            SqlParameter lp = new SqlParameter();
-            lp.ParameterName = Key;
-            lp.Value = Value == null ? DBNull.Value : Value;
-            if (!SqlParameters.Where(x => x.ParameterName == Key).Any()) {
-                SqlParameters.Add(lp);
+            if (CheckObjectIsArray(Value)) {
+
+                AddParameterArray(Key, Value);
+            } else {
+
+                SqlParameter lp = new SqlParameter();
+                lp.ParameterName = Key;
+                lp.Value = Value == null ? DBNull.Value : Value;
+                if (!SqlParameters.Where(x => x.ParameterName == Key).Any()) {
+                    SqlParameters.Add(lp);
+                }
             }
         }
 
@@ -685,30 +725,29 @@ namespace EntityRepository {
         /// <typeparam name="T"></typeparam>
         /// <param name="Key"></param>
         /// <param name="Values"></param>
-        public void AddParameter<T>(string Key, IEnumerable<T> Values) {
+        private void AddParameterArray(string Key, params object[] Values) {
 
             var parameterNames = new List<string>();
             var paramNbr = 0;
 
-            if (Values is null) {
-                AddParameter(Key, null);
-                return; 
-            }
+            //foreach (var param in Values) {
 
-            foreach (var param in Values) {
-
-                SqlParameter lp = new SqlParameter();
+            //    var paramName = string.Format(Key.StartsWith("@") ? "{0}{1}" : "@{0}{1}", Key, paramNbr++);
+            //    parameterNames.Add(paramName);
+            //    AddParameter(paramName, param);
+            //}
+            for (int i = 0; i < Values.Length; i++) {
 
                 var paramName = string.Format(Key.StartsWith("@") ? "{0}{1}" : "@{0}{1}", Key, paramNbr++);
                 parameterNames.Add(paramName);
-
+                SqlParameter lp = new SqlParameter();
                 lp.ParameterName = paramName;
-                lp.Value = param;
-                if (!SqlParameters.Where(x => x.ParameterName == paramName).Any()) {
+                lp.Value = Values[i] == null ? DBNull.Value : Values[i];
+                if (!SqlParameters.Where(x => x.ParameterName == Key).Any()) {
                     SqlParameters.Add(lp);
                 }
             }
-            
+
             CommandText = CommandText?.Replace(Key, string.Join(",", parameterNames));
         }
 
