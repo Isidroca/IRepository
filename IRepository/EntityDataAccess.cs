@@ -705,18 +705,14 @@ namespace EntityRepository {
         /// <param name="Value">Set Parameters value</param>
         public void AddParameter(string Key, object Value) {
 
-            if (CheckObjectIsArray(Value)) {
-
-                AddParameterArray(Key, Value);
-            } else {
-
-                SqlParameter lp = new SqlParameter();
-                lp.ParameterName = Key;
-                lp.Value = Value == null ? DBNull.Value : Value;
-                if (!SqlParameters.Where(x => x.ParameterName == Key).Any()) {
-                    SqlParameters.Add(lp);
-                }
+           
+            SqlParameter lp = new SqlParameter();
+            lp.ParameterName = Key;
+            lp.Value = Value == null ? DBNull.Value : Value;
+            if (!SqlParameters.Where(x => x.ParameterName == Key).Any()) {
+                SqlParameters.Add(lp);
             }
+           
         }
 
         /// <summary>
@@ -725,27 +721,16 @@ namespace EntityRepository {
         /// <typeparam name="T"></typeparam>
         /// <param name="Key"></param>
         /// <param name="Values"></param>
-        private void AddParameterArray(string Key, params object[] Values) {
+        public void AddParameterList(string Key, List<object> Values) {
 
             var parameterNames = new List<string>();
             var paramNbr = 0;
 
-            //foreach (var param in Values) {
-
-            //    var paramName = string.Format(Key.StartsWith("@") ? "{0}{1}" : "@{0}{1}", Key, paramNbr++);
-            //    parameterNames.Add(paramName);
-            //    AddParameter(paramName, param);
-            //}
-            for (int i = 0; i < Values.Length; i++) {
+            foreach(var item in Values) {
 
                 var paramName = string.Format(Key.StartsWith("@") ? "{0}{1}" : "@{0}{1}", Key, paramNbr++);
                 parameterNames.Add(paramName);
-                SqlParameter lp = new SqlParameter();
-                lp.ParameterName = paramName;
-                lp.Value = Values[i] == null ? DBNull.Value : Values[i];
-                if (!SqlParameters.Where(x => x.ParameterName == Key).Any()) {
-                    SqlParameters.Add(lp);
-                }
+                AddParameter(paramName, item);
             }
 
             CommandText = CommandText?.Replace(Key, string.Join(",", parameterNames));
