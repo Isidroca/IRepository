@@ -721,7 +721,7 @@ namespace EntityRepository {
         /// <typeparam name="T"></typeparam>
         /// <param name="Key"></param>
         /// <param name="Values"></param>
-        public void AddParameterList(string Key, List<object> Values) {
+        public void AddParameterList<T>(string Key, List<T> Values) {
 
             var parameterNames = new List<string>();
             var paramNbr = 0;
