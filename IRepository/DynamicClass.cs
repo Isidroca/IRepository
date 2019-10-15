@@ -1,13 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Dynamic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace EntityRepository {
 
-	public class Field {
+    public class Field {
 
 		public string FieldName;
 		public Type FieldType;

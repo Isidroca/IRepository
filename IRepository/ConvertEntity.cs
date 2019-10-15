@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Reflection;
 using System.Data;
+using System.Reflection;
 
 namespace EntityRepository {
     public class ConvertEntity {
@@ -53,5 +51,6 @@ namespace EntityRepository {
             if (Nullable.GetUnderlyingType(Input) != null) return true; // Nullable
             return false; // Must be a value-type
         }
+
     }
 }

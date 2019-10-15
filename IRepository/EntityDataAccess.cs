@@ -1578,7 +1578,7 @@ namespace EntityRepository {
         /// <param name="Entity"></param>
         /// <param name="UseTransaction"></param>
         /// <returns></returns>
-        public async Task<int> UpdateAsync<T>(T Entity, bool UseTransaction = false) {
+        public async Task<object> UpdateAsync<T>(T Entity, bool UseTransaction = false) {
 
             if (CommandType == 0 || CommandType == ICommandType.Text) {
 
