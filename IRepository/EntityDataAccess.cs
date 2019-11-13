@@ -448,7 +448,7 @@ namespace EntityRepository {
         /// </summary>
         /// <param name="UseTransaction"></param>
         /// <returns></returns>
-        public int ExecuteNonQuery(bool UseTransaction) {
+        public object ExecuteNonQuery(bool UseTransaction) {
 
             if (string.IsNullOrWhiteSpace(ConnectionString)) {
                 throw new ArgumentNullException("Connection string can not be empty");
@@ -483,7 +483,14 @@ namespace EntityRepository {
                 }
                 _sqlComand.Connection = SQLConnection;
                 _sqlComand.Transaction = SQLTransaction;
-
+                if (_ifInserted)
+                    if (_idenType == typeof(short)) {
+                        return Convert.ToInt16(_sqlComand.ExecuteScalar());
+                    } else if (_idenType == typeof(int)) {
+                        return Convert.ToInt32(_sqlComand.ExecuteScalar());
+                    } else if (_idenType == typeof(long)) {
+                        return Convert.ToInt64(_sqlComand.ExecuteScalar());
+                    }
                 return _sqlComand.ExecuteNonQuery();
             } catch (SqlException ex) {
                 Exception = ex;
