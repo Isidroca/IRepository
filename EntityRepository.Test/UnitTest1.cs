@@ -10,6 +10,7 @@ namespace EntityRepository.Test {
 
         string ProconnectionString = @"";
         string connectionString = @"Server=ICALDERON\SQLEXPRESS;Database=teste;Trusted_Connection=True;";
+        string suministro = @"";
 
         [TestMethod()]
         public async Task InsertTest() {
@@ -25,7 +26,29 @@ namespace EntityRepository.Test {
             p.WDate = DateTime.Now;
             p.Status = (short)1;
 
-            var value = (int)await repo.InsertAsync(p);
+            var value = (int)await repo.InsertAsync(p, true);
+
+            Assert.AreEqual(1, value);
+        }
+
+
+        [TestMethod()]
+        public async Task InsertInvetoryTransactionsTest()
+        {
+
+            EntityDataAccess repo = new EntityDataAccess(suministro);
+            var p = new InventoryTransactions()
+            {
+                CompanyId = 1,
+                InventoryTransactionTypeID = 9,
+                Observations = null,
+                WDate = DateTime.Now,
+                StatusID = 1,
+                UserID = ""
+            };
+
+            var value = (int)await repo.InsertAsync(p, true);
+            repo.Commit();
 
             Assert.AreEqual(1, value);
         }
