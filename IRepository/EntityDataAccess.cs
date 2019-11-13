@@ -436,7 +436,7 @@ namespace EntityRepository {
             if (!IsValidModel) return 0;
 
             if (UseTransaction) {
-                return await ExecuteNonQueryAsync(true);
+                return await ExecuteNonQueryAsync(UseTransaction);
             }
             else {
                 return await ExecuteNonQueryAsync();
@@ -503,7 +503,7 @@ namespace EntityRepository {
         /// </summary>
         /// <param name="UseTransaction"></param>
         /// <returns></returns>
-        public async Task<int> ExecuteNonQueryAsync(bool UseTransaction) {
+        public async Task<object> ExecuteNonQueryAsync(bool UseTransaction) {
 
             if (string.IsNullOrWhiteSpace(ConnectionString)) {
                 throw new ArgumentNullException("Connection string can not be empty");
@@ -539,6 +539,19 @@ namespace EntityRepository {
                 _sqlComand.Connection = SQLConnection;
                 _sqlComand.Transaction = SQLTransaction;
 
+                if (_ifInserted)
+                    if (_idenType == typeof(short))
+                    {
+                        return Convert.ToInt16(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
+                    }
+                    else if (_idenType == typeof(int))
+                    {
+                        return Convert.ToInt32(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
+                    }
+                    else if (_idenType == typeof(long))
+                    {
+                        return Convert.ToInt64(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
+                    }
                 return await _sqlComand.ExecuteNonQueryAsync().ConfigureAwait(false);
             } catch (SqlException ex) {
                 Exception = ex;
