@@ -729,6 +729,9 @@ namespace EntityRepository {
             SqlParameter lp = new SqlParameter();
             lp.ParameterName = Key;
             lp.Value = Value == null ? DBNull.Value : Value;
+            if (Value is string || Value is DateTime) {
+                lp.SqlDbType = SqlDbType.NVarChar;
+            }
             if (!SqlParameters.Where(x => x.ParameterName == Key).Any()) {
                 SqlParameters.Add(lp);
             }
