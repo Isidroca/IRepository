@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Runtime.InteropServices;
 using System.Globalization;
+using System.Net;
 
 namespace EntityRepository {
 
@@ -1757,7 +1758,7 @@ namespace EntityRepository {
 
             _param = _param.EndsWith(",", StringComparison.InvariantCultureIgnoreCase) ? _param.Substring(0, _param.Length - 1) : _param;
 
-            query = string.Concat("INSERT INTO ", "[" + _tname,  "]" + " (", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
+            query = string.Concat("INSERT INTO ", FixTableName(_tname), "(", _columns, ")", _ifInserted ? _inserted : "", " VALUES " + "(", _param, ")");
 
             //QueryCache[typeof(T)] = query;
             SqlText = query;
@@ -1854,6 +1855,15 @@ namespace EntityRepository {
         public bool IsPropertyACollection(PropertyInfo property) {
             return property.PropertyType.IsGenericType &&
                     property.PropertyType.GetGenericTypeDefinition() == typeof(IList<>);
+        }
+
+        public string FixTableName(string value) {
+
+            if (value.Contains(".")) {
+                string[] names = value.Split('.');
+                return string.Concat("[", names[0], "]", ".[", names[1], "]");
+            }
+            return string.Concat("[", value, "]");
         }
 
         /// <summary>
