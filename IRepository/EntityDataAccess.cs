@@ -56,6 +56,14 @@ namespace EntityRepository {
             StorePrecedure = 2
         }
 
+        public enum ParameterDirection : byte {
+
+            Input = 1,
+            Output = 2,
+            InputOutput = 3,
+            ReturnValue = 4
+        }
+
         /// <summary>
         /// Create new intance to EntityDataAccess class
         /// </summary>
@@ -329,11 +337,13 @@ namespace EntityRepository {
             using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
                 using (SqlCommand _sqlComand = new SqlCommand(this.CommandText, _strConn)) {
 
+                    string outputName = string.Empty;
                     _sqlComand.CommandType = SetCommandType(CommandType);
                     _sqlComand.CommandTimeout = this.CommandTimeOut;
 
                     try {
                         if (SqlParameters != null) {
+                            outputName = SqlParameters.FirstOrDefault(x => x.Direction != System.Data.ParameterDirection.Input)?.ParameterName;
                             _sqlComand.Parameters.AddRange(SqlParameters.ToArray());
                             SqlParameters.Clear();
                         }
@@ -349,7 +359,13 @@ namespace EntityRepository {
                                 return (long)_sqlComand.ExecuteScalar();
                             }
                        }
-                       return _sqlComand.ExecuteNonQuery();
+                        var result = _sqlComand.ExecuteNonQuery();
+
+                        if (!string.IsNullOrWhiteSpace(outputName)) {
+
+                            return _sqlComand.Parameters[outputName].Value;
+                        }
+                        return result;
 
                     } catch (SqlException ex) {
                         Exception = ex;
@@ -381,11 +397,13 @@ namespace EntityRepository {
             using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
                 using (SqlCommand _sqlComand = new SqlCommand(this.CommandText, _strConn)) {
 
+                    string outputName = string.Empty;
                     _sqlComand.CommandType = SetCommandType(CommandType);
                     _sqlComand.CommandTimeout = this.CommandTimeOut;
 
                     try {
                         if (SqlParameters != null) {
+                            outputName = SqlParameters.FirstOrDefault(x => x.Direction != System.Data.ParameterDirection.Input)?.ParameterName;
                             _sqlComand.Parameters.AddRange(SqlParameters.ToArray());
                             SqlParameters.Clear();
                         }
@@ -400,7 +418,14 @@ namespace EntityRepository {
                             else if (_idenType == typeof(long)) {
                                 return Convert.ToInt64(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
                             }
-                            return await _sqlComand.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                        var result = await _sqlComand.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                        if (!string.IsNullOrWhiteSpace(outputName)) {
+
+                            return _sqlComand.Parameters[outputName].Value;
+                        }
+                        return result;
 
                     } catch (SqlException ex) {
                         Exception = ex;
@@ -585,106 +610,6 @@ namespace EntityRepository {
 
         }
 
-        /// <summary>
-        /// Execute transactions on the database and return a specified value, implementation Ej: @ID int = null output
-        /// </summary>
-        /// <param name="ReturnVariableName">Sql Output variable name, ej: @ID</param>
-        /// <param name="Parameters">Delimited coma store procedure parameter, eje: val1, val2, ext</param>
-        /// <returns></returns>
-        public object ExecuteNonQuery(string ReturnVariableName, params object[] Parameters) {
-
-            if (string.IsNullOrWhiteSpace(ConnectionString)) {
-                throw new ArgumentNullException("Connection string can not be empty");
-            }
-
-            if (string.IsNullOrWhiteSpace(CommandText)) {
-                throw new ArgumentNullException("CommandText can not be blank");
-            }
-
-            using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
-
-                using (SqlCommand _sqlComand = new SqlCommand(this.CommandText, _strConn)) {
-
-                    _sqlComand.CommandType = System.Data.CommandType.StoredProcedure;
-                    _sqlComand.CommandTimeout = this.CommandTimeOut;
-                    _strConn.Open();
-
-                    SqlCommandBuilder.DeriveParameters(_sqlComand);
-
-                    int _index = 0;
-                    try {
-
-                        foreach (SqlParameter _paramms in _sqlComand.Parameters) {
-                            if (_paramms.Direction == ParameterDirection.Input || _paramms.Direction == ParameterDirection.Output) {
-                                _paramms.Value = Parameters[_index];
-                                _index += 1;
-                            }
-                        }
-                        _sqlComand.ExecuteNonQuery();
-                        return _sqlComand.Parameters[ReturnVariableName].Value;
-                    } catch (SqlException ex) {
-                        Exception = ex;
-                        InternalError += string.Format("Error ({0}): {1}", ex.Number, ex.Message);
-                        return 0;
-                    } catch (Exception ex) {
-                        Exception = ex;
-                        InternalError += ex.Message.ToString();
-                        return 0;
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Execute transactions on the database and return a specified value, implementation Ej: @ID int = null output
-        /// </summary>
-        /// <param name="ReturnVariableName">Sql Output variable name, ej: @ID</param>
-        /// <param name="Parameters">Delimited coma store procedure parameter, eje: val1, val2, ext</param>
-        /// <returns></returns>
-        public async Task<object> ExecuteNonQueryAsync(string ReturnVariableName, params object[] Parameters) {
-
-            if (string.IsNullOrWhiteSpace(ConnectionString)) {
-                throw new ArgumentNullException("Connection string can not be empty");
-            }
-
-            if (string.IsNullOrWhiteSpace(CommandText)) {
-                throw new ArgumentNullException("CommandText can not be blank");
-            }
-
-            using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
-
-                using (SqlCommand _sqlComand = new SqlCommand(this.CommandText, _strConn)) {
-
-                    _sqlComand.CommandType = System.Data.CommandType.StoredProcedure;
-                    _sqlComand.CommandTimeout = this.CommandTimeOut;
-                    _strConn.Open();
-
-                    SqlCommandBuilder.DeriveParameters(_sqlComand);
-
-                    int _index = 0;
-                    try {
-
-                        foreach (SqlParameter _paramms in _sqlComand.Parameters) {
-                            if (_paramms.Direction == ParameterDirection.Input || _paramms.Direction == ParameterDirection.Output) {
-                                _paramms.Value = Parameters[_index];
-                                _index += 1;
-                            }
-                        }
-                        await _sqlComand.ExecuteNonQueryAsync().ConfigureAwait(false);
-                        return _sqlComand.Parameters[ReturnVariableName].Value;
-                    } catch (SqlException ex) {
-                        Exception = ex;
-                        InternalError += string.Format("Error ({0}): {1}", ex.Number, ex.Message);
-                        return 0;
-                    } catch (Exception ex) {
-                        Exception = ex;
-                        InternalError += ex.Message.ToString();
-                        return 0;
-                    }
-                }
-            }
-        }
-
         private bool CheckObjectIsArray(object Value) {
 
             bool isArray = false;
@@ -724,19 +649,33 @@ namespace EntityRepository {
         /// </summary>
         /// <param name="Key">Set Parameters name</param>
         /// <param name="Value">Set Parameters value</param>
-        public void AddParameter(string Key, object Value) {
-
-           
+        public void AddParameter(string Key, object Value, ParameterDirection Direction = ParameterDirection.Input) {
+    
             SqlParameter lp = new SqlParameter();
             lp.ParameterName = Key;
             lp.Value = Value == null ? DBNull.Value : Value;
+            lp.Direction = setParamDirection(Direction);
+
             if (Value is string || Value is DateTime) {
                 lp.SqlDbType = SqlDbType.NVarChar;
             }
             if (!SqlParameters.Where(x => x.ParameterName == Key).Any()) {
                 SqlParameters.Add(lp);
             }
-           
+        }
+
+        private System.Data.ParameterDirection setParamDirection(ParameterDirection Direction) {
+
+            switch(Direction) {
+                case ParameterDirection.Output:
+                     return System.Data.ParameterDirection.Output;
+                case ParameterDirection.InputOutput:
+                     return System.Data.ParameterDirection.InputOutput;
+                case ParameterDirection.ReturnValue:
+                     return System.Data.ParameterDirection.ReturnValue;
+                default:
+                     return System.Data.ParameterDirection.Input;
+            }
         }
 
         /// <summary>

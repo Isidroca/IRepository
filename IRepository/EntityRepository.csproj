@@ -11,9 +11,9 @@
     <PackageProjectUrl>https://github.com/Isidroca/IRepository</PackageProjectUrl>
     <DocumentationMarkdownUrl>https://github.com/Isidroca/IRepository/blob/master/README.md</DocumentationMarkdownUrl>
     <LangVersion>8.0</LangVersion>
-    <AssemblyVersion>1.0.4.0</AssemblyVersion>
-    <FileVersion>1.0.4.0</FileVersion>
-    <Version>1.0.4</Version>
+    <AssemblyVersion>1.0.9.1</AssemblyVersion>
+    <FileVersion>1.0.9.1</FileVersion>
+    <Version>1.0.9</Version>
   </PropertyGroup>
 
   <ItemGroup>
