@@ -615,7 +615,10 @@ namespace EntityRepository {
                     try {
 
                         foreach (SqlParameter _paramms in _sqlComand.Parameters) {
-                            if (_paramms.Direction == ParameterDirection.Input || _paramms.Direction == ParameterDirection.Output) {
+                            if (_paramms.Direction == ParameterDirection.Input ||
+                                _paramms.Direction == ParameterDirection.Output ||
+                                _paramms.Direction == ParameterDirection.InputOutput)
+                            {
                                 _paramms.Value = Parameters[_index];
                                 _index += 1;
                             }
@@ -665,7 +668,10 @@ namespace EntityRepository {
                     try {
 
                         foreach (SqlParameter _paramms in _sqlComand.Parameters) {
-                            if (_paramms.Direction == ParameterDirection.Input || _paramms.Direction == ParameterDirection.Output) {
+                            if (_paramms.Direction == ParameterDirection.Input ||
+                                _paramms.Direction == ParameterDirection.Output ||
+                                _paramms.Direction == ParameterDirection.InputOutput)
+                            {
                                 _paramms.Value = Parameters[_index];
                                 _index += 1;
                             }
