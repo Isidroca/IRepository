@@ -649,16 +649,22 @@ namespace EntityRepository {
         /// </summary>
         /// <param name="Key">Set Parameters name</param>
         /// <param name="Value">Set Parameters value</param>
-        public void AddParameter(string Key, object Value, ParameterDirection Direction = ParameterDirection.Input) {
+        public void AddParameter(string Key, object Value, ParameterDirection Direction = ParameterDirection.Input, SqlDbType? sqlDbType = null) {
     
             SqlParameter lp = new SqlParameter();
             lp.ParameterName = Key;
             lp.Value = Value == null ? DBNull.Value : Value;
             lp.Direction = setParamDirection(Direction);
 
-            if (Value is string || Value is DateTime) {
+            if (sqlDbType != null)
+            {
+                lp.SqlDbType = sqlDbType.Value;
+            }
+            else if (Value is string || Value is DateTime)
+            {
                 lp.SqlDbType = SqlDbType.NVarChar;
             }
+
             if (!SqlParameters.Where(x => x.ParameterName == Key).Any()) {
                 SqlParameters.Add(lp);
             }
