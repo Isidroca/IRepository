@@ -1,47 +1,62 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Reflection;
-using System.Data.SqlClient;
-using System.Data;
 using System.Collections;
-using System.Linq;
-using System.Dynamic;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
+using System.Dynamic;
+using System.Linq;
 using System.Linq.Expressions;
-using System.Threading.Tasks;
-using System.Threading;
+using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Globalization;
-using System.Net;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace EntityRepository {
 
     public class EntityDataAccess : IDisposable {
 
+        /// <summary>
+        /// 
+        /// </summary>
         public string ConnectionString { get; set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
         public string CommandText { get; set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
         public ICommandType CommandType { get; set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
         public string InternalError = string.Empty;
         private protected string SqlText { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
         public Exception Exception { get; private set; }
+
+        /// <summary>
+        /// 
+        /// </summary>
         public int CommandTimeOut = 30;
+
+        /// <summary>
+        /// 
+        /// </summary>
         protected int _durationTime = 0;
-        public int QueryDurationTime {
-            get {
-                return _durationTime;
-            }
-        }
-        public bool StatisticsEnabled { get; set; } = false;
-        public bool IsValidModel { get; private set; } = true;
+
+        protected bool IsValidModel { get; private set; } = true;
         public CancellationTokenSource CancellationTokenSource { get; set; }
         public CancellationToken CancellationToken { get; set; }
         internal List<string> _infoMessage;
-        public List<string> InfoMessage {
-            get {
-                return _infoMessage;
-            }
-        }
         protected internal bool _ifInserted = false;
         protected internal Type _idenType;
         private List<SqlParameter> SqlParameters = new List<SqlParameter>();
@@ -642,6 +657,16 @@ namespace EntityRepository {
                 }
             }
             return isArray;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Key"></param>
+        /// <param name="Direction"></param>
+        public void AddParameter(string Key, ParameterDirection Direction = ParameterDirection.Input) {
+
+            AddParameter(Key, null, Direction);
         }
 
         /// <summary>
