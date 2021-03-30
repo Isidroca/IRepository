@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 namespace EntityRepository {
 
     public class EntityDataAccess : IDisposable {
-
+    
         /// <summary>
         /// 
         /// </summary>
@@ -77,6 +77,11 @@ namespace EntityRepository {
             Output = 2,
             InputOutput = 3,
             ReturnValue = 4
+        }
+
+        public enum DBType : short {
+
+          
         }
 
         /// <summary>
@@ -663,31 +668,61 @@ namespace EntityRepository {
         /// 
         /// </summary>
         /// <param name="Key"></param>
-        /// <param name="Direction"></param>
-        public void AddParameter(string Key, ParameterDirection Direction = ParameterDirection.Input) {
+        /// <param name="Value"></param>
+        public void AddParameter(string Key, object Value) {
 
-            AddParameter(Key, null, Direction);
+            AddParameters(Key, Value, ParameterDirection.Input, DbType.None);
         }
 
         /// <summary>
-        /// The parameters of the Transact-SQL statement or stored procedure. The default is an empty collection.
+        /// 
         /// </summary>
-        /// <param name="Key">Set Parameters name</param>
-        /// <param name="Value">Set Parameters value</param>
-        public void AddParameter(string Key, object Value, ParameterDirection Direction = ParameterDirection.Input, SqlDbType? sqlDbType = null) {
-    
+        /// <param name="Key"></param>
+        /// <param name="Value"></param>
+        /// <param name="Direction"></param>
+        public void AddParameter(string Key, object Value, ParameterDirection Direction) {
+
+            AddParameters(Key, Value, Direction, DbType.None);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Key"></param>
+        /// <param name="Value"></param>
+        /// <param name="SqlDbType"></param>
+        public void AddParameter(string Key, object Value, DbType SqlDbType) {
+
+            AddParameters(Key, Value, ParameterDirection.Input, SqlDbType);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Key"></param>
+        /// <param name="Value"></param>
+        /// <param name="Direction"></param>
+        /// <param name="SqlDbType"></param>
+        public void AddParameter(string Key, object Value, ParameterDirection Direction, DbType SqlDbType) {
+
+            AddParameters(Key, Value, Direction, SqlDbType);
+        }
+
+        private void AddParameters(string Key, object Value, ParameterDirection Direction, DbType sqlDbType) {
+
             SqlParameter lp = new SqlParameter();
             lp.ParameterName = Key;
             lp.Value = Value == null ? DBNull.Value : Value;
             lp.Direction = setParamDirection(Direction);
 
-            if (sqlDbType != null)
-            {
-                lp.SqlDbType = sqlDbType.Value;
+            if (sqlDbType != DbType.None) {
+                lp.SqlDbType = (SqlDbType)sqlDbType;
             }
-            else if (Value is string || Value is DateTime)
-            {
+
+            if (Value is string) {
                 lp.SqlDbType = SqlDbType.NVarChar;
+            } else if (Value is DateTime) {
+                lp.SqlDbType = SqlDbType.VarChar;
             }
 
             if (!SqlParameters.Where(x => x.ParameterName == Key).Any()) {
