@@ -16,26 +16,27 @@ using System.Threading.Tasks;
 namespace EntityRepository {
 
     public class EntityDataAccess : IDisposable {
-    
+
         /// <summary>
-        /// 
+        /// Represents a connection to a SQL Server database
         /// </summary>
         public string ConnectionString { get; set; }
 
         /// <summary>
-        /// 
+        /// Gets or sets the Transact-SQL statement, table name or stored procedure to execute at the data source
         /// </summary>
         public string CommandText { get; set; }
 
         /// <summary>
-        /// 
+        /// Gets or sets a value indicating how the CommandText property
         /// </summary>
         public ICommandType CommandType { get; set; }
 
         /// <summary>
-        /// 
+        /// Gets internal error
         /// </summary>
-        public string InternalError = string.Empty;
+        public string InternalError { get; private set; }
+
         private protected string SqlText { get; private set; }
 
         /// <summary>
@@ -44,9 +45,14 @@ namespace EntityRepository {
         public Exception Exception { get; private set; }
 
         /// <summary>
-        /// 
+        /// Gets or sets the wait time (in seconds, 30 by default) before terminating the attempt to execute a command and generating an error.
         /// </summary>
         public int CommandTimeOut = 30;
+
+        /// <summary>
+        /// Gets or sets the type name for a table-valued parameter
+        /// </summary>
+        public string TypeName { get; set; }
 
         /// <summary>
         /// 
@@ -65,12 +71,18 @@ namespace EntityRepository {
         SqlConnection SQLConnection;
         SqlTransaction SQLTransaction;
 
+        /// <summary>
+        /// 
+        /// </summary>
         public enum ICommandType : byte {
 
             Text = 1,
             StorePrecedure = 2
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         public enum ParameterDirection : byte {
 
             Input = 1,
@@ -79,9 +91,12 @@ namespace EntityRepository {
             ReturnValue = 4
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
         public enum DBType : short {
 
-          
+
         }
 
         /// <summary>
@@ -96,7 +111,7 @@ namespace EntityRepository {
         public EntityDataAccess(string ConnectionString) {
 
             this.ConnectionString = ConnectionString;
-       
+
         }
 
         /// <summary>
@@ -368,17 +383,15 @@ namespace EntityRepository {
                             SqlParameters.Clear();
                         }
                         _strConn.Open();
-                        if (_ifInserted) { 
+                        if (_ifInserted) {
                             if (_idenType == typeof(short)) {
                                 return (short)_sqlComand.ExecuteScalar();
-                            }
-                            else if (_idenType == typeof(int)) {
+                            } else if (_idenType == typeof(int)) {
                                 return (int)_sqlComand.ExecuteScalar();
-                            }
-                            else if (_idenType == typeof(long)) {
+                            } else if (_idenType == typeof(long)) {
                                 return (long)_sqlComand.ExecuteScalar();
                             }
-                       }
+                        }
                         var result = _sqlComand.ExecuteNonQuery();
 
                         if (!string.IsNullOrWhiteSpace(outputName)) {
@@ -431,11 +444,9 @@ namespace EntityRepository {
                         if (_ifInserted)
                             if (_idenType == typeof(short)) {
                                 return Convert.ToInt16(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
-                            }
-                            else if (_idenType == typeof(int)) {
+                            } else if (_idenType == typeof(int)) {
                                 return Convert.ToInt32(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
-                            }
-                            else if (_idenType == typeof(long)) {
+                            } else if (_idenType == typeof(long)) {
                                 return Convert.ToInt64(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
                             }
 
@@ -466,8 +477,7 @@ namespace EntityRepository {
 
             if (UseTransaction) {
                 return ExecuteNonQuery(true);
-            }
-            else {
+            } else {
                 return ExecuteNonQuery();
             }
         }
@@ -483,8 +493,7 @@ namespace EntityRepository {
 
             if (UseTransaction) {
                 return await ExecuteNonQueryAsync(UseTransaction);
-            }
-            else {
+            } else {
                 return await ExecuteNonQueryAsync();
             }
         }
@@ -593,16 +602,11 @@ namespace EntityRepository {
                 _sqlComand.Transaction = SQLTransaction;
 
                 if (_ifInserted)
-                    if (_idenType == typeof(short))
-                    {
+                    if (_idenType == typeof(short)) {
                         return Convert.ToInt16(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
-                    }
-                    else if (_idenType == typeof(int))
-                    {
+                    } else if (_idenType == typeof(int)) {
                         return Convert.ToInt32(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
-                    }
-                    else if (_idenType == typeof(long))
-                    {
+                    } else if (_idenType == typeof(long)) {
                         return Convert.ToInt64(await _sqlComand.ExecuteScalarAsync().ConfigureAwait(false));
                     }
                 return await _sqlComand.ExecuteNonQueryAsync().ConfigureAwait(false);
@@ -653,7 +657,7 @@ namespace EntityRepository {
                              typeof(IEnumerable<string>),
                              typeof(IEnumerable<char>)
                            };
-            
+
             foreach (var t in types) {
                 if (!(Value is null)) {
                     if (Value.GetType() == t) {
@@ -665,7 +669,7 @@ namespace EntityRepository {
         }
 
         /// <summary>
-        /// 
+        /// Represents a parameter to a SqlCommand
         /// </summary>
         /// <param name="Key"></param>
         /// <param name="Value"></param>
@@ -675,7 +679,7 @@ namespace EntityRepository {
         }
 
         /// <summary>
-        /// 
+        /// Represents a parameter to a SqlCommand
         /// </summary>
         /// <param name="Key"></param>
         /// <param name="Value"></param>
@@ -686,7 +690,7 @@ namespace EntityRepository {
         }
 
         /// <summary>
-        /// 
+        /// Represents a parameter to a SqlCommand
         /// </summary>
         /// <param name="Key"></param>
         /// <param name="Value"></param>
@@ -697,7 +701,7 @@ namespace EntityRepository {
         }
 
         /// <summary>
-        /// 
+        /// Represents a parameter to a SqlCommand
         /// </summary>
         /// <param name="Key"></param>
         /// <param name="Value"></param>
@@ -725,6 +729,11 @@ namespace EntityRepository {
                 lp.SqlDbType = SqlDbType.VarChar;
             }
 
+            if (!string.IsNullOrWhiteSpace(TypeName)) {
+                lp.SqlDbType = SqlDbType.Structured;
+                lp.TypeName = TypeName;
+            }
+
             if (!SqlParameters.Where(x => x.ParameterName == Key).Any()) {
                 SqlParameters.Add(lp);
             }
@@ -732,15 +741,15 @@ namespace EntityRepository {
 
         private System.Data.ParameterDirection setParamDirection(ParameterDirection Direction) {
 
-            switch(Direction) {
+            switch (Direction) {
                 case ParameterDirection.Output:
-                     return System.Data.ParameterDirection.Output;
+                    return System.Data.ParameterDirection.Output;
                 case ParameterDirection.InputOutput:
-                     return System.Data.ParameterDirection.InputOutput;
+                    return System.Data.ParameterDirection.InputOutput;
                 case ParameterDirection.ReturnValue:
-                     return System.Data.ParameterDirection.ReturnValue;
+                    return System.Data.ParameterDirection.ReturnValue;
                 default:
-                     return System.Data.ParameterDirection.Input;
+                    return System.Data.ParameterDirection.Input;
             }
         }
 
@@ -755,7 +764,7 @@ namespace EntityRepository {
             var parameterNames = new List<string>();
             var paramNbr = 0;
 
-            foreach(var item in Values) {
+            foreach (var item in Values) {
 
                 var paramName = string.Format(Key.StartsWith("@") ? "{0}{1}" : "@{0}{1}", Key, paramNbr++);
                 parameterNames.Add(paramName);
@@ -1043,8 +1052,7 @@ namespace EntityRepository {
                                          select (T)r[0]
                                      ).ToList();
 
-                            }
-                            else {
+                            } else {
                                 Func<SqlDataReader, T> readRow = GetReader<T>(_dr);
 
                                 while (_dr.Read()) {
@@ -1100,8 +1108,7 @@ namespace EntityRepository {
                                          select (T)r[0]
                                         ).ToList();
 
-                            }
-                            else {
+                            } else {
                                 Func<SqlDataReader, T> readRow = GetReader<T>(_dr);
 
                                 while (_dr.Read()) {
@@ -1162,36 +1169,29 @@ namespace EntityRepository {
 
         private T GetFirstOrDefault<T>() {
 
-            if (string.IsNullOrWhiteSpace(ConnectionString))
-            {
+            if (string.IsNullOrWhiteSpace(ConnectionString)) {
                 throw new ArgumentNullException("Connection string can not be empty");
             }
 
-            if (string.IsNullOrWhiteSpace(CommandText))
-            {
+            if (string.IsNullOrWhiteSpace(CommandText)) {
                 throw new ArgumentNullException("CommandText can not be blank");
             }
-            try
-            {
-                using (SqlConnection conn = new SqlConnection(ConnectionString))
-                {
-                    using (SqlCommand comm = new SqlCommand(CommandText, conn))
-                    {
+            try {
+                using (SqlConnection conn = new SqlConnection(ConnectionString)) {
+                    using (SqlCommand comm = new SqlCommand(CommandText, conn)) {
 
                         comm.CommandType = this.SetCommandType(CommandType);
                         comm.CommandTimeout = this.CommandTimeOut;
                         conn.Open();
 
-                        if (SqlParameters.Count > 0)
-                        {
+                        if (SqlParameters.Count > 0) {
                             comm.Parameters.AddRange(SqlParameters.ToArray());
                             SqlParameters.Clear();
                         }
 
                         List<T> _list = new List<T>();
 
-                        using (SqlDataReader _dr = comm.ExecuteReader())
-                        {
+                        using (SqlDataReader _dr = comm.ExecuteReader()) {
 
                             bool isPrimitive = IsPrimitive<T>();
 
@@ -1201,13 +1201,11 @@ namespace EntityRepository {
                                          select (T)r[0]
                                      ).ToList();
 
-                            }
-                            else {
+                            } else {
                                 Func<SqlDataReader, T> readRow = GetReader<T>(_dr);
                                 bool c = false;
 
-                                while (_dr.Read() && !c)
-                                {
+                                while (_dr.Read() && !c) {
                                     _list.Add(readRow(_dr));
                                     c = true;
                                     break;
@@ -1218,8 +1216,7 @@ namespace EntityRepository {
                         return _list.FirstOrDefault();
                     }
                 }
-            }
-            catch (Exception ex) { Exception = ex; InternalError += ex.Message; return default(T); }
+            } catch (Exception ex) { Exception = ex; InternalError += ex.Message; return default(T); }
 
         }
 
@@ -1262,8 +1259,7 @@ namespace EntityRepository {
                                          select (T)r[0]
                                      ).ToList();
 
-                            }
-                            else {
+                            } else {
                                 Func<SqlDataReader, T> readRow = GetReader<T>(_dr);
                                 bool c = false;
 
@@ -1338,8 +1334,7 @@ namespace EntityRepository {
             for (int index = 0; index < reader.FieldCount; index++)
                 if (UpperCompare) {
                     readerColumns.Add(reader.GetName(index).ToUpper());
-                }
-                else {
+                } else {
                     readerColumns.Add(reader.GetName(index));
                 }
             return readerColumns;
@@ -1460,101 +1455,6 @@ namespace EntityRepository {
         /// <summary>
         /// 
         /// </summary>
-        /// <typeparam name="A"></typeparam>
-        /// <typeparam name="B"></typeparam>
-        /// <returns></returns>
-        public MultiQuery<A, B> ExecuteReader<A, B>() where A : new()
-                                                      where B : new() {
-
-            if (string.IsNullOrWhiteSpace(ConnectionString)) {
-                throw new ArgumentNullException("Connection string can not be empty");
-            }
-
-            if (string.IsNullOrWhiteSpace(CommandText)) {
-                throw new ArgumentNullException("CommandText can not be blank");
-            }
-
-            var _AList = new List<A>();
-            var _BList = new List<B>();
-            var mset = new MultiQuery<A, B>();
-
-            using (SqlConnection _strConn = new SqlConnection(ConnectionString)) {
-                using (SqlCommand _conn = new SqlCommand(CommandText, _strConn)) {
-
-                    _conn.CommandType = this.SetCommandType(CommandType);
-                    _conn.CommandTimeout = this.CommandTimeOut;
-                    _strConn.Open();
-
-                    if (SqlParameters.Count > 0) {
-                        _conn.Parameters.AddRange(SqlParameters.ToArray());
-                        SqlParameters.Clear();
-                    }
-                    using (SqlDataReader _dr = _conn.ExecuteReader()) {
-
-                        if (_dr.Read()) {
-
-                            _AList = this.MapEntityCollection<A>(_dr);
-                        }
-                        if (_dr.NextResult()) {
-
-                            _BList = this.MapEntityCollection<B>(_dr);
-                        }
-                    }
-                }
-            }
-
-            mset.Pro1 = _AList;
-            mset.Pro2 = _BList;
-
-            return mset;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="dr"></param>
-        /// <param name="Closed"></param>
-        /// <returns></returns>
-        private List<T> MapEntityCollection<T>(IDataReader dr, bool Closed = true) where T : new() {
-
-            Type entityType = typeof(T);
-            List<T> entitys = new List<T>();
-            Hashtable hashtable = new Hashtable();
-            PropertyInfo[] properties = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-
-            foreach (PropertyInfo info in properties) {
-                hashtable[info.Name.ToUpper()] = info;
-            }
-
-            while (dr.Read()) {
-                T newObject = new T();
-                for (int index = 0; index < dr.FieldCount; index++) {
-                    try {
-                        PropertyInfo info = (PropertyInfo)hashtable[dr.GetName(index).ToUpper()];
-
-                        //bool isVirtual = info.GetGetMethod().IsVirtual;
-                        //if (isVirtual) {
-
-                        //}
-                        if ((info != null) && info.CanWrite) {
-                            info.SetValue(newObject, ChangeType.ChangeEntityType(dr.GetValue(index), info.PropertyType), null);
-                        }
-                    } catch {
-                        continue;
-                    }
-                }
-                entitys.Add(newObject);
-            }
-            if (Closed) {
-                dr.Close();
-            }
-            return entitys;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="Entity"></param>
         /// <param name="UseTransaction"></param>
@@ -1645,8 +1545,7 @@ namespace EntityRepository {
 
                     if (isFirstTime) {
                         sbParams.AppendLine(string.Concat(paramName.Replace("@", string.Empty), " = ", value));
-                    }
-                    else {
+                    } else {
                         sbParams.AppendLine(string.Concat(" AND ", paramName.Replace("@", string.Empty), " = ", value));
                     }
 
@@ -1657,8 +1556,7 @@ namespace EntityRepository {
             if (string.IsNullOrWhiteSpace(sbParams.ToString())) {
                 CommandText = "";
                 throw new ArgumentNullException("Delete key property not found");
-            }
-            else {
+            } else {
                 CommandText = string.Concat("DELETE FROM [", _tname, "] WHERE ", sbParams.ToString(), ";");
             }
 
@@ -1728,8 +1626,7 @@ namespace EntityRepository {
 
                     sbColumns.AppendLine(string.Concat(info.Name, ","));
                     AddParameter(paramName, value);
-                }
-                else if (isPrimary.AutoIncrease) {
+                } else if (isPrimary.AutoIncrease) {
 
                     _ifInserted = true;
                     _idenType = info.PropertyType;
@@ -1755,7 +1652,7 @@ namespace EntityRepository {
             _columns = CleanEndLine(_columns);
             _param = CleanEndLine(_param);
 
-            _columns = _columns.StartsWith(",", StringComparison.InvariantCultureIgnoreCase) ?_columns.Substring(1) : _columns;
+            _columns = _columns.StartsWith(",", StringComparison.InvariantCultureIgnoreCase) ? _columns.Substring(1) : _columns;
 
             _columns = _columns.EndsWith(",", StringComparison.InvariantCultureIgnoreCase) ? _columns.Substring(0, _columns.Length - 1) : _columns;
 
@@ -1834,9 +1731,9 @@ namespace EntityRepository {
                 query = "";
                 throw new ArgumentNullException("Update primary key property not found");
             }
- 
-            query = string.Concat("UPDATE ","[" + _tname, "] SET ", sbColumns, " WHERE ", sbWhereParams.ToString());
-            
+
+            query = string.Concat("UPDATE ", "[" + _tname, "] SET ", sbColumns, " WHERE ", sbWhereParams.ToString());
+
             if (!IsValidModel) { InternalError += "Please check all properties marked as required" + Environment.NewLine; }
 
             SqlText = query;
@@ -1889,8 +1786,7 @@ namespace EntityRepository {
             EntityDataAccess db = new EntityDataAccess();
             try {
                 Execution(db);
-            }
-            finally {
+            } finally {
             }
         }
 
@@ -1916,14 +1812,11 @@ namespace EntityRepository {
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
                 return OSPlatform.Windows;
-            }else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            {
+            } else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
                 return OSPlatform.OSX;
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
+            } else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) {
                 return OSPlatform.Linux;
-            }
-            else {
+            } else {
                 return OSPlatform.Windows;
             }
         }

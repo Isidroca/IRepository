@@ -2,6 +2,9 @@
 
 namespace EntityRepository {
 
+    /// <summary>
+    /// 
+    /// </summary>
     public enum DbType : short {
 
         None = -1,
@@ -23,6 +26,7 @@ namespace EntityRepository {
         SmallInt = SqlDbType.SmallInt,
         SmallMoney = SqlDbType.SmallMoney,
         Text = SqlDbType.Text,
+        Structured = SqlDbType.Structured,
         TinyInt = SqlDbType.TinyInt,
         UniqueIdentifier = SqlDbType.UniqueIdentifier,
         VarBinary = SqlDbType.VarBinary,
