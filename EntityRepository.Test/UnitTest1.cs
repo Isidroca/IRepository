@@ -9,8 +9,7 @@ namespace EntityRepository.Test {
     public class UnitTest1 {
 
         string ProconnectionString = @"";
-        string connectionString = @"Server=ICALDERON\SQLEXPRESS;Database=teste;Trusted_Connection=True;";
-        string suministro = @"";
+        string connectionString = @"Server=YouServer;Database=teste;Trusted_Connection=True;";
 
         [TestMethod()]
         public async Task InsertTest() {
